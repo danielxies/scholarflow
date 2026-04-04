@@ -1,0 +1,5 @@
+Literature relevance from files execution log
+- Added project-context extraction from scaffold files and recent user messages.
+- Added a batched search-time relevance endpoint for OpenAlex results.
+- Removed topic-based add gating from the literature UI and backend.
+- Narrowed saved-paper enrichment to summary-only and hid saved relevance in the library.

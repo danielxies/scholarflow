@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(go test:*)",
+      "Bash(for id:*)",
+      "Bash(do echo:*)",
+      "Bash(python3 -c \"import sys,json; [print\\(json.loads\\(l\\).get\\(''''message'''',{}\\).get\\(''''content'''',[{}]\\)[0].get\\(''''text'''',''''''''\\)[:200]\\) for l in sys.stdin]\")"
+    ]
+  }
+}

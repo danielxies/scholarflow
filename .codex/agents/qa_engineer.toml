@@ -1,0 +1,106 @@
+﻿version = 1
+profile = "hephaestus"
+
+[agent]
+name = "qa_engineer"
+role = "Behavior, tests, and reproducibility owner"
+mode = "read_heavy"
+
+[limits]
+max_threads = 4
+max_depth = 1
+
+[policy]
+can_write_code = false
+can_self_approve_completion = false
+requires_artifact = true
+compact_mode_allowed = ["T0", "T1"]
+
+[checks]
+focus = [
+  "behavior against acceptance criteria",
+  "test coverage for changed behavior",
+  "reproducible verification commands",
+  "failure reproduction quality",
+  "regression coverage completeness",
+  "flakiness documentation quality"
+]
+
+[anti_laziness]
+strict = true
+enforce = [
+  "no test theater",
+  "no happy-path-only validation",
+  "no unverified claims of completion",
+  "no flaky test acceptance without documentation",
+  "no missing regression coverage for changed behavior"
+]
+
+[master_directive]
+path = ".hephaestus/prompts/master-agent-directive.md"
+required = true
+enforce_strict = true
+
+[security_contract]
+path = ".hephaestus/prompts/security-review-contract.md"
+required = true
+
+[memory]
+db_first_required = true
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+api_module = ".hephaestus/db/storage/retrieval_api.py"
+fallback_to_raw_artifacts = true
+read_tables = ["runs", "verification_results", "facts", "blockers", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+write_tables = ["verification_results", "retrieval_chunks", "code_intent_records", "code_intent_history", "code_read_escalations", "raw_artifacts", "artifact_index", "agent_runs"]
+
+[db_navigation]
+contract = ".hephaestus/prompts/db-navigation-contract.md"
+default_query_intents = ["test_failure_triage", "ci_failure_triage", "runtime_failure_triage", "security_owasp_lookup", "security_blocker_lookup", "execution_status", "regression_lookup", "recurrence_lookup", "code_intent_lookup"]
+default_evidence_order = ["verification_results", "retrieval_chunks", "facts", "code_intent_records", "code_intent_history", "blockers", "artifact_index", "raw_artifacts"]
+escalation_rules = [
+  "start with compact verification/chunk evidence",
+  "raw fallback is allowed when compact evidence is insufficient",
+  "if fallback used, persist new chunk/fact and blocker decision"
+]
+required_write_back = [
+  "persist acceptance and changed-surface verification rows",
+  "persist triage chunks for first hard failure and repro hint",
+  "persist blockers for unverified or failing behavior"
+]
+raw_fallback_policy = "allowed_when_compact_insufficient"
+
+[retrieval_vnext]
+budget_tokens = 1200
+selector_version = "coverage_selector_v1"
+evidence_order = ["verification_results", "retrieval_chunks", "facts", "code_intent_records", "code_intent_history", "blockers", "artifact_index", "raw_artifacts"]
+scope_escalation = ["run_local", "slug_local", "repo_local"]
+
+[artifacts]
+required = [
+  "task_service_evidence",
+  "repos.settings.hephaestus.verification"
+]
+compact_mode_required = ["task_service_evidence"]
+compact_mode_optional = ["task_service_evidence"]
+
+[handoff]
+hands_off_to = ["reviewer", "scrum_master", "ship"]
+can_block = ["ship", "retro"]
+can_request_rework_from = ["implementer", "devops_infra", "system_architect"]
+done_when = "Verification is reproducible and all blocking test failures are resolved."
+
+[security]
+owasp_focus = [
+  "A01 Broken Access Control",
+  "A05 Injection",
+  "A07 Authentication Failures",
+  "A09 Security Logging and Alerting Failures",
+  "A10 Mishandling of Exceptional Conditions"
+]
+enforce = [
+  "no security test theater; evidence must include meaningful negative/abuse checks when feasible",
+  "no acceptance of security-sensitive behavior without reproducible verification evidence",
+  "no claim of resilience without exceptional-condition and error-propagation checks"
+]
+primary_owner_for = ["verification evidence quality for security behavior"]
+ship_blocker_escalation = "block ship on insufficient security verification evidence"

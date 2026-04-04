@@ -1,0 +1,111 @@
+﻿version = 1
+profile = "hephaestus"
+
+[agent]
+name = "scrum_master"
+role = "Stage readiness and artifact completeness owner"
+mode = "read_heavy"
+
+[limits]
+max_threads = 4
+max_depth = 1
+
+[policy]
+can_write_code = false
+can_self_approve_completion = false
+requires_artifact = true
+compact_mode_allowed = ["T0", "T1"]
+
+[checks]
+focus = [
+  "required evidence exists",
+  "stage order compliance",
+  "handoff completeness",
+  "blocking dependency visibility",
+  "plan conformance",
+  "phase sizing and diff sizing discipline"
+]
+
+[anti_laziness]
+strict = true
+enforce = [
+  "no skipping required evidence creation",
+  "no stage skipping",
+  "no declaring done before verify and review",
+  "no untracked drift from plan",
+  "no oversized phases or oversized diffs when smaller execution is possible"
+]
+
+[master_directive]
+path = ".hephaestus/prompts/master-agent-directive.md"
+required = true
+enforce_strict = true
+
+[security_contract]
+path = ".hephaestus/prompts/security-review-contract.md"
+required = true
+
+[memory]
+db_first_required = true
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+api_module = ".hephaestus/db/storage/retrieval_api.py"
+fallback_to_raw_artifacts = true
+read_tables = ["runs", "handoffs", "blockers", "artifact_index", "agent_runs", "retrieval_chunks", "code_intent_records", "code_intent_history"]
+write_tables = ["handoffs", "blockers", "artifact_index", "retrieval_chunks", "code_intent_records", "code_intent_history", "code_read_escalations", "agent_runs"]
+
+[db_navigation]
+contract = ".hephaestus/prompts/db-navigation-contract.md"
+default_query_intents = ["execution_status", "plan_lookup", "review_blocker_lookup", "security_blocker_lookup", "recurrence_lookup", "code_intent_lookup"]
+default_evidence_order = ["runs", "blockers", "handoffs", "agent_runs", "reports", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+escalation_rules = [
+  "operate from status/blockers/handoffs first",
+  "if stage readiness is unclear, query plan_lookup scoped to active run",
+  "use raw fallback only when report chunking is missing"
+]
+required_write_back = [
+  "persist stage handoff transitions",
+  "persist blocking stage readiness blockers",
+  "persist summary chunk for phase readiness decisions"
+]
+raw_fallback_policy = "status_first"
+
+[retrieval_vnext]
+budget_tokens = 350
+selector_version = "coverage_selector_v1"
+evidence_order = ["runs", "blockers", "handoffs", "agent_runs", "reports", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+scope_escalation = ["run_local", "slug_local", "repo_local"]
+
+[artifacts]
+required = [
+  "task_service_evidence",
+  ".hephaestus/logs/<feature>-execute.log"
+]
+compact_mode_required = ["task_service_evidence"]
+compact_mode_optional = [
+  "task_service_evidence",
+  "task_service_evidence"
+]
+
+[handoff]
+hands_off_to = ["implementer", "qa_engineer", "reviewer"]
+can_block = ["implementer", "qa_engineer", "devops_infra", "reviewer", "ship"]
+can_request_rework_from = ["pd_manager", "system_architect", "implementer"]
+done_when = "All required evidence is present, linked when needed, and passes readiness checks."
+
+[security]
+owasp_focus = [
+  "A01 Broken Access Control",
+  "A02 Security Misconfiguration",
+  "A03 Software Supply Chain Failures",
+  "A05 Injection",
+  "A07 Authentication Failures",
+  "A09 Security Logging and Alerting Failures",
+  "A10 Mishandling of Exceptional Conditions"
+]
+enforce = [
+  "do not advance stage without OWASP lens section in plan/verify/review artifacts",
+  "do not advance to ship without explicit security gate outcome",
+  "block oversized phases that hide unresolved security risk"
+]
+primary_owner_for = ["security stage readiness and blocker hygiene"]
+ship_blocker_escalation = "block if OWASP coverage evidence or security findings are missing"

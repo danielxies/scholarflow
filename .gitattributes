@@ -1,0 +1,18 @@
+# BEGIN SYNQ MANAGED MERGE
+* text=auto
+* merge=synq
+*.png binary -merge
+*.jpg binary -merge
+*.jpeg binary -merge
+*.gif binary -merge
+*.ico binary -merge
+*.pdf binary -merge
+*.exe binary -merge
+*.dll binary -merge
+*.so binary -merge
+*.dylib binary -merge
+*.db binary -merge
+*.sqlite binary -merge
+*.sqlite-shm binary -merge
+*.sqlite-wal binary -merge
+# END SYNQ MANAGED MERGE

@@ -1,0 +1,246 @@
+[hephaestus]
+enabled = true
+artifact_root = ".hephaestus"
+skill_dir = ".agents/skills"
+agent_dir = ".codex/agents"
+official_install_method = "python_cli_package"
+verification_commands_setting = "repos.settings.hephaestus.verification"
+
+[hephaestus.user_mode]
+mode = "normal"
+output_verbosity = "milestones"
+auto_stage_progression = true
+auto_retrieval_audit = true
+
+[hephaestus.memory]
+backend = "sqlite"
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+migrations_dir = ".hephaestus/db/migrations"
+storage_module = ".hephaestus/db/storage"
+retrieval_api_module = ".hephaestus/db/storage/retrieval_api.py"
+ingestion_module = ".hephaestus/db/storage/ingestion.py"
+db_migrate_script = "scripts/db-migrate.sh"
+db_migrate_script_ps = "scripts/db-migrate.ps1"
+db_reindex_script = "scripts/db-reindex.sh"
+db_reindex_script_ps = "scripts/db-reindex.ps1"
+db_health_check_script = "scripts/db-health-check.sh"
+db_health_check_script_ps = "scripts/db-health-check.ps1"
+db_navigation_contract = ".hephaestus/prompts/db-navigation-contract.md"
+db_first_retrieval = true
+retrieval_default_limit = 20
+fallback_to_raw_artifacts = true
+
+[hephaestus.repo_identity]
+strategy = "auto"
+prefer_repo_id_file = true
+repo_id_file = ".hephaestus/install/repo.id"
+non_git_fallback = "path_fingerprint_and_uuid"
+
+[hephaestus.memory.recurrence]
+enabled = true
+strong_match_threshold = 0.82
+likely_match_threshold = 0.68
+minimum_candidate_threshold = 0.35
+patterns_table = "recurrence_patterns"
+
+[hephaestus.ci]
+state_enabled = true
+pipelines_table = "ci_pipelines"
+runs_table = "ci_runs"
+stages_table = "ci_stages"
+events_table = "ci_stage_events"
+artifacts_table = "ci_artifacts"
+retry_table = "ci_retry_history"
+automation_actions_table = "ci_automation_actions"
+
+[hephaestus.ci_bridge]
+provider_mode = "auto"
+local_fallback = true
+ingestion_batches_table = "ci_ingestion_batches"
+ingestion_items_table = "ci_ingestion_items"
+log_fingerprints_table = "ci_log_fingerprints"
+ci_ingest_command = "hephaestus ci ingest"
+
+[hephaestus.package]
+version_file = ".hephaestus/package/VERSION"
+compatibility_file = ".hephaestus/package/compatibility.toml"
+manifest_file = ".hephaestus/package/package-files.txt"
+installed_version_file = ".hephaestus/install/version.json"
+package_validate_script = "scripts/package-validate.sh"
+package_validate_script_ps = "scripts/package-validate.ps1"
+package_upgrade_script = "scripts/package-upgrade.sh"
+package_upgrade_script_ps = "scripts/package-upgrade.ps1"
+package_build_script = "scripts/package-build.sh"
+package_build_script_ps = "scripts/package-build.ps1"
+package_test_script = "scripts/test-hephaestus.sh"
+package_test_script_ps = "scripts/test-hephaestus.ps1"
+
+[hephaestus.routing]
+orchestrator = "hephaestus-orchestrator"
+intake = "hephaestus-intake"
+spec_architect = "hephaestus-spec-architect"
+planner = "hephaestus-planner"
+implementer = "hephaestus-implementer"
+verifier = "hephaestus-verifier"
+reviewer = "hephaestus-reviewer"
+laziness_audit = "hephaestus-laziness-audit"
+security_audit = "hephaestus-security-audit"
+retrieval_audit = "hephaestus-retrieval-audit"
+ci_triage = "hephaestus-ci-triage"
+ci_flake_detect = "hephaestus-ci-flake-detect"
+ci_fix_suggest = "hephaestus-ci-fix-suggest"
+supply_chain_gate = "hephaestus-supply-chain-gate"
+threat_surface_sync = "hephaestus-threat-surface-sync"
+product_strategist = "product_strategist"
+feature_editor = "feature_editor"
+requirements_analyst = "requirements_analyst"
+roadmap_advisor = "roadmap_advisor"
+decision_recorder = "decision_recorder"
+direction_suggester = "direction_suggester"
+researcher = "researcher"
+
+[hephaestus.research]
+enabled = true
+default_role = "researcher"
+findings_table = "research_findings"
+mirror_source_type = "research_finding"
+require_source_backed_writeback = true
+
+[hephaestus.policy]
+require_stage_evidence = true
+require_stage_artifacts_for_t2_plus = true
+review_before_merge = true
+require_laziness_audit_before_ship = true
+require_security_audit_before_ship = true
+enforce_owasp_top_10_2025 = true
+security_review_contract = ".hephaestus/prompts/security-review-contract.md"
+default_execute_mode = "explicit"
+require_intent_contract_risk_before_raw_code = true
+
+[hephaestus.compact_mode]
+enabled = true
+tiers = ["T0", "T1"]
+brief_path = "task_service_evidence"
+default_t0_max_artifacts = 2
+default_t1_max_artifacts = 3
+ship_report = "conditional"
+retro = "conditional"
+db_writeback_policy = "minimum_required_for_handoffs_blockers_findings_resume"
+allow_code_first_when_memory_empty = true
+low_risk_security_policy = "compact_summary"
+
+[hephaestus.security]
+owasp_mapping_runbook = ".hephaestus/runbooks/owasp-2025-mapping.md"
+security_findings_table = "security_findings"
+default_owner_role = "reviewer"
+blocker_stage = "security"
+
+[hephaestus.artifacts]
+tasks = "task_service_evidence"
+intake = "task_service_evidence"
+specs = "task_service_evidence"
+plans = "task_service_evidence"
+reports = "task_service_evidence"
+logs = ".hephaestus/logs"
+retros = "task_service_evidence"
+prompts = ".hephaestus/prompts"
+runbooks = ".hephaestus/runbooks"
+
+[hephaestus.execution_loop]
+enabled = true
+checkpoint_table = "execution_checkpoints"
+review_gate_table = "review_gates"
+repair_cycle_table = "repair_cycles"
+repair_attempt_table = "repair_attempts"
+retry_budget_table = "retry_budgets"
+abandonment_table = "abandonment_events"
+abandon_timeout_minutes = 90
+max_rework_cycles = 3
+
+[hephaestus.retrieval_vnext]
+enabled = true
+intent_classifier = "rules_v1"
+intent_first_code_retrieval = true
+scope_ladder = ["run_local", "slug_local", "repo_local", "org_wide"]
+max_scope_escalations = 2
+memory_tier_default = "run_local"
+allow_org_wide_by_default = false
+audit_table = "retrieval_audit_log"
+bundle_selector = "coverage_selector_v1"
+code_sensitivity_policy = ".hephaestus/prompts/code-sensitivity-rules.md"
+code_intent_table = "code_intent_records"
+code_intent_history_table = "code_intent_history"
+code_read_escalation_table = "code_read_escalations"
+
+[hephaestus.retrieval_vnext.budgets]
+scrum_master = 350
+pd_manager = 500
+implementer = 900
+qa_engineer = 1200
+devops_infra = 1300
+system_architect = 1100
+reviewer = 1300
+product_strategist = 700
+feature_editor = 700
+requirements_analyst = 800
+roadmap_advisor = 650
+decision_recorder = 500
+direction_suggester = 600
+researcher = 1000
+
+[hephaestus.product_planning]
+enabled = true
+merge_mode = "balanced_auto_merge"
+agent_collab_mode = "two_pass_peer_sync"
+readiness_confidence_threshold = 0.8
+write_docs_only_when_ready = true
+
+[hephaestus.ci_intelligence]
+enabled = true
+triage_table = "ci_triage_assessments"
+flake_table = "ci_flake_profiles"
+cluster_table = "ci_failure_clusters"
+cluster_members_table = "ci_cluster_members"
+verification_routes_table = "ci_verification_routes"
+fix_suggestions_table = "ci_fix_suggestions"
+fix_executions_table = "ci_fix_executions"
+closure_table = "ci_closure_decisions"
+enforce_do_not_autofix = true
+
+[hephaestus.security_controls]
+enabled = true
+controls_table = "security_controls"
+gate_table = "security_gate_decisions"
+evidence_link_table = "security_evidence_links"
+waiver_table = "security_waivers"
+deterministic_checks = true
+
+[hephaestus.install_vnext]
+enabled = true
+journal_file = ".hephaestus/install/upgrade-journal.json"
+manifest_lock_file = ".hephaestus/install/manifest.lock"
+overrides_file = ".hephaestus/install/overrides.toml"
+rollback_script = "scripts/package-rollback.sh"
+rollback_script_ps = "scripts/package-rollback.ps1"
+
+[hephaestus.rollout]
+phase_order = ["observe", "warn", "enforce"]
+default_phase = "observe"
+
+[hephaestus.rollout.retrieval_vnext]
+phase = "observe"
+
+[hephaestus.rollout.execution_loop]
+phase = "observe"
+
+[hephaestus.rollout.ci_intelligence]
+phase = "observe"
+
+[hephaestus.rollout.security_controls]
+phase = "warn"
+
+[hephaestus.rollout.install_vnext]
+phase = "warn"
+
+[hephaestus.rollout.product_planning]
+phase = "observe"

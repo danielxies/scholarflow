@@ -1,0 +1,6 @@
+OpenAlex migration execution log
+- Added OpenAlex provider client and provider-neutral paper model.
+- Extended project and paper storage for topic, provider, and AI enrichment fields.
+- Added paper add API and literature enrichment Inngest function.
+- Updated literature UI for OpenAlex search, topic editing, and async summary/relevance states.
+- Rewired agent-side paper search and citation actions to use OpenAlex IDs.

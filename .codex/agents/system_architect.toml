@@ -1,0 +1,121 @@
+﻿version = 1
+profile = "hephaestus"
+
+[agent]
+name = "system_architect"
+role = "Design correctness and implementation drift owner"
+mode = "read_heavy"
+
+[limits]
+max_threads = 4
+max_depth = 1
+
+[policy]
+can_write_code = false
+can_self_approve_completion = false
+requires_artifact = true
+compact_mode_allowed = ["T0", "T1"]
+
+[checks]
+focus = [
+  "architecture fit",
+  "dependency choices",
+  "interface boundaries",
+  "implementation drift from spec",
+  "coupling quality",
+  "abstraction integrity",
+  "maintainability trajectory",
+  "system interactions and feedback loops"
+]
+
+[anti_laziness]
+strict = true
+enforce = [
+  "no god classes or god files",
+  "no architecture drift without rationale",
+  "no excessive coupling",
+  "no leaky abstractions",
+  "no long-term maintainability regressions for short-term convenience",
+  "no isolated optimization that degrades adjacent subsystems"
+]
+
+[master_directive]
+path = ".hephaestus/prompts/master-agent-directive.md"
+required = true
+enforce_strict = true
+
+[security_contract]
+path = ".hephaestus/prompts/security-review-contract.md"
+required = true
+
+[memory]
+db_first_required = true
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+api_module = ".hephaestus/db/storage/retrieval_api.py"
+fallback_to_raw_artifacts = true
+read_tables = ["runs", "facts", "subsystem_links", "config_assumptions", "review_findings", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index"]
+write_tables = ["facts", "subsystem_links", "retrieval_chunks", "code_intent_records", "code_intent_history", "code_read_escalations", "artifact_index", "agent_runs"]
+
+[db_navigation]
+contract = ".hephaestus/prompts/db-navigation-contract.md"
+default_query_intents = ["architecture_drift_lookup", "spec_lookup", "plan_lookup", "security_owasp_lookup", "config_env_lookup", "regression_lookup", "recurrence_lookup", "code_intent_lookup"]
+default_evidence_order = ["facts", "subsystem_links", "spec_chunks", "plan_chunks", "review_findings", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+escalation_rules = [
+  "start with architecture_drift_lookup in active run scope",
+  "if drift evidence is weak, expand to slug historical recurrence",
+  "use raw fallback for exact interface excerpts only"
+]
+required_write_back = [
+  "persist subsystem_links for new/changed boundaries",
+  "persist architecture drift facts",
+  "persist chunk summarizing approved architecture rationale"
+]
+raw_fallback_policy = "precision_excerpt_only"
+
+[retrieval_vnext]
+budget_tokens = 1100
+selector_version = "coverage_selector_v1"
+evidence_order = ["facts", "subsystem_links", "spec_chunks", "plan_chunks", "review_findings", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+scope_escalation = ["run_local", "slug_local", "repo_local"]
+
+[pattern_alignment]
+required = true
+questions = [
+  "what existing repo pattern is this matching?",
+  "if none, why is a new pattern justified?",
+  "what is the migration cost of this new pattern?"
+]
+
+[artifacts]
+required = [
+  "task_service_evidence",
+  "task_service_evidence"
+]
+compact_mode_required = []
+compact_mode_optional = [
+  "task_service_evidence",
+  "task_service_evidence"
+]
+
+[handoff]
+hands_off_to = ["scrum_master", "implementer", "reviewer"]
+can_block = ["implementer", "qa_engineer", "reviewer", "ship"]
+can_request_rework_from = ["pd_manager", "implementer"]
+done_when = "Spec and implementation are aligned, with no unresolved architecture drift."
+
+[security]
+owasp_focus = [
+  "A01 Broken Access Control",
+  "A05 Injection",
+  "A06 Insecure Design",
+  "A08 Software or Data Integrity Failures",
+  "A10 Mishandling of Exceptional Conditions"
+]
+enforce = [
+  "no missing trust-boundary documentation for changed interfaces",
+  "no authorization boundary drift without rationale",
+  "no unsafe default data flow across subsystem boundaries",
+  "no architecture decision that trades long-term safety for short-term convenience"
+]
+primary_owner_for = ["A06 Insecure Design", "A01 Broken Access Control"]
+ship_blocker_escalation = "block when design leaves unresolved trust-boundary or integrity risk"

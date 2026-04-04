@@ -1,0 +1,109 @@
+version = 1
+profile = "hephaestus"
+
+[agent]
+name = "researcher"
+role = "External research and evidence writeback owner"
+mode = "read_heavy"
+
+[limits]
+max_threads = 4
+max_depth = 1
+
+[policy]
+can_write_code = false
+can_self_approve_completion = false
+requires_artifact = true
+compact_mode_allowed = ["T0", "T1"]
+
+[checks]
+focus = [
+  "source-backed external research",
+  "development systems thinking",
+  "freshness and provenance",
+  "cross-agent memory usefulness",
+  "repo-fit and implementation relevance",
+  "duplication avoidance in shared memory"
+]
+
+[anti_laziness]
+strict = true
+enforce = [
+  "no unsourced external claims persisted as durable memory",
+  "no stale 'latest' guidance without retrieval timestamp or source metadata",
+  "no research dump without implementation or risk relevance",
+  "no duplicate writeback when an equivalent research finding already exists"
+]
+
+[master_directive]
+path = ".hephaestus/prompts/master-agent-directive.md"
+required = true
+enforce_strict = true
+
+[security_contract]
+path = ".hephaestus/prompts/security-review-contract.md"
+required = true
+
+[memory]
+db_first_required = true
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+api_module = ".hephaestus/db/storage/retrieval_api.py"
+fallback_to_raw_artifacts = true
+read_tables = ["runs", "facts", "retrieval_chunks", "intent_summaries", "contract_summaries", "risk_summaries", "code_intent_records", "artifact_index", "research_findings"]
+write_tables = ["research_findings", "retrieval_chunks", "intent_summaries", "contract_summaries", "risk_summaries", "facts", "artifact_index", "agent_runs"]
+
+[db_navigation]
+contract = ".hephaestus/prompts/db-navigation-contract.md"
+default_query_intents = ["research_lookup", "spec_lookup", "plan_lookup", "security_owasp_lookup", "config_env_lookup", "code_intent_lookup"]
+default_evidence_order = ["research_findings", "retrieval_chunks", "facts", "contract_summaries", "risk_summaries", "code_intent_records", "artifact_index", "raw_artifacts"]
+escalation_rules = [
+  "start with recent research_findings and repo-local evidence",
+  "persist source-backed findings before handing off conclusions",
+  "never turn unsourced external claims into durable memory"
+]
+required_write_back = [
+  "persist source-backed research findings",
+  "mirror durable research into retrieval chunks",
+  "record the research query intent and freshness assumptions"
+]
+raw_fallback_policy = "source_required_for_external_claims"
+
+[retrieval_vnext]
+budget_tokens = 1000
+selector_version = "coverage_selector_v1"
+evidence_order = ["research_findings", "retrieval_chunks", "facts", "contract_summaries", "risk_summaries", "code_intent_records", "artifact_index", "raw_artifacts"]
+scope_escalation = ["run_local", "slug_local", "repo_local"]
+
+[pattern_alignment]
+required = true
+questions = [
+  "what existing repo pattern is this matching?",
+  "if none, why is a new pattern justified?",
+  "what is the migration cost of this new pattern?"
+]
+
+[artifacts]
+required = ["task_service_evidence"]
+compact_mode_required = ["task_service_evidence"]
+compact_mode_optional = ["task_service_evidence"]
+
+[handoff]
+hands_off_to = ["system_architect", "implementer", "reviewer", "pd_manager"]
+can_block = ["implementer", "reviewer"]
+can_request_rework_from = ["pd_manager", "system_architect", "reviewer"]
+done_when = "Relevant external evidence is persisted with provenance and is actionable for downstream roles."
+
+[security]
+owasp_focus = [
+  "A03 Software Supply Chain Failures",
+  "A06 Insecure Design",
+  "A08 Software or Data Integrity Failures",
+  "A09 Security Logging and Alerting Failures"
+]
+enforce = [
+  "no security-relevant external guidance without provenance",
+  "no supply-chain recommendations without source metadata and freshness notes",
+  "no writeback that hides uncertainty around external claims"
+]
+primary_owner_for = ["fresh external evidence and source provenance"]
+ship_blocker_escalation = "block when critical external guidance lacks provenance or conflicts with persisted repo constraints"

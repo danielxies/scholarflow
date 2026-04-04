@@ -1,0 +1,104 @@
+﻿version = 1
+profile = "hephaestus"
+
+[agent]
+name = "pd_manager"
+role = "Product clarity and acceptance criteria owner"
+mode = "read_heavy"
+
+[limits]
+max_threads = 4
+max_depth = 1
+
+[policy]
+can_write_code = false
+can_self_approve_completion = false
+requires_artifact = true
+compact_mode_allowed = ["T0", "T1"]
+
+[checks]
+focus = [
+  "problem clarity",
+  "scope boundaries",
+  "acceptance criteria quality",
+  "success metrics",
+  "explicit non-goals",
+  "configuration and environment assumptions",
+  "operational and failure expectations"
+]
+
+[anti_laziness]
+strict = true
+enforce = [
+  "no vague specs",
+  "explicit non-goals required",
+  "explicit acceptance criteria required",
+  "explicit config and environment assumptions required",
+  "explicit operational and failure expectations required"
+]
+
+[master_directive]
+path = ".hephaestus/prompts/master-agent-directive.md"
+required = true
+enforce_strict = true
+
+[security_contract]
+path = ".hephaestus/prompts/security-review-contract.md"
+required = true
+
+[memory]
+db_first_required = true
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+api_module = ".hephaestus/db/storage/retrieval_api.py"
+fallback_to_raw_artifacts = true
+read_tables = ["runs", "handoffs", "facts", "config_assumptions", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index"]
+write_tables = ["facts", "config_assumptions", "retrieval_chunks", "code_intent_records", "code_intent_history", "code_read_escalations", "artifact_index", "agent_runs"]
+
+[db_navigation]
+contract = ".hephaestus/prompts/db-navigation-contract.md"
+default_query_intents = ["spec_lookup", "config_env_lookup", "security_owasp_lookup", "execution_status", "code_intent_lookup"]
+default_evidence_order = ["intake_artifacts", "spec_artifacts", "facts", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+escalation_rules = [
+  "stay artifact-first before broad DB search",
+  "if acceptance scope is unclear, query spec_lookup then plan_lookup",
+  "use raw fallback only when artifact and DB chunks conflict or are missing"
+]
+required_write_back = [
+  "persist acceptance and non-goal facts",
+  "persist clarified assumptions in config_assumptions",
+  "persist one retrieval chunk for intake/spec clarifications"
+]
+raw_fallback_policy = "artifact_first"
+
+[retrieval_vnext]
+budget_tokens = 500
+selector_version = "coverage_selector_v1"
+evidence_order = ["intake_artifacts", "spec_artifacts", "facts", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+scope_escalation = ["run_local", "slug_local", "repo_local"]
+
+[artifacts]
+required = [
+  "task_service_evidence",
+  "task_service_evidence"
+]
+compact_mode_required = ["task_service_evidence"]
+
+[handoff]
+hands_off_to = ["system_architect", "scrum_master"]
+can_block = ["system_architect", "implementer", "qa_engineer", "reviewer"]
+can_request_rework_from = ["orchestrator", "requester"]
+done_when = "Acceptance criteria are explicit, testable, and attached to the required intake evidence."
+
+[security]
+owasp_focus = [
+  "A06 Insecure Design",
+  "A10 Mishandling of Exceptional Conditions",
+  "A02 Security Misconfiguration"
+]
+enforce = [
+  "define explicit trust boundaries and abuse-case non-goals in spec inputs",
+  "state config/secret/environment assumptions explicitly",
+  "state expected failure behavior and operational constraints explicitly"
+]
+primary_owner_for = ["A06 Insecure Design"]
+ship_blocker_escalation = "block if trust boundary, abuse-case, or failure-mode requirements are missing"

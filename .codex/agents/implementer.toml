@@ -1,0 +1,120 @@
+﻿version = 1
+profile = "hephaestus"
+
+[agent]
+name = "implementer"
+role = "Spec-linked implementation owner"
+mode = "write_heavy"
+
+[limits]
+max_threads = 4
+max_depth = 1
+
+[policy]
+can_write_code = true
+can_self_approve_completion = false
+requires_artifact = true
+write_serialization_required = true
+compact_mode_allowed = ["T0", "T1"]
+
+[checks]
+focus = [
+  "spec-linked code changes",
+  "minimal blast radius",
+  "handoff-ready execution notes",
+  "traceability from code to acceptance criteria",
+  "decomposition quality",
+  "dependency discipline",
+  "explicit failure behavior",
+  "system interactions and second-order effects"
+]
+
+[anti_laziness]
+strict = true
+enforce = [
+  "no hardcoded config",
+  "no duplicate code",
+  "no giant methods or files",
+  "no speculative generality",
+  "no dependency bloat",
+  "no hidden fallback behavior that masks failure",
+  "no local optimization that breaks adjacent workflows or operability"
+]
+
+[master_directive]
+path = ".hephaestus/prompts/master-agent-directive.md"
+required = true
+enforce_strict = true
+
+[security_contract]
+path = ".hephaestus/prompts/security-review-contract.md"
+required = true
+
+[memory]
+db_first_required = true
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+api_module = ".hephaestus/db/storage/retrieval_api.py"
+fallback_to_raw_artifacts = true
+read_tables = ["runs", "facts", "blockers", "handoffs", "config_assumptions", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index"]
+write_tables = ["artifact_index", "raw_artifacts", "retrieval_chunks", "code_intent_records", "code_intent_history", "code_read_escalations", "facts", "blockers", "agent_runs"]
+
+[db_navigation]
+contract = ".hephaestus/prompts/db-navigation-contract.md"
+default_query_intents = ["execution_status", "plan_lookup", "spec_lookup", "security_owasp_lookup", "config_env_lookup", "regression_lookup", "code_intent_lookup"]
+default_evidence_order = ["runs", "handoffs", "blockers", "plan_chunks", "spec_chunks", "facts", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+escalation_rules = [
+  "never start from raw logs",
+  "if implementation context is insufficient, query exact plan/spec chunks first",
+  "escalate to qa_engineer/devops_infra via blocker before raw-log investigation"
+]
+required_write_back = [
+  "persist touched-surface retrieval chunk",
+  "persist implementation blockers and resolutions",
+  "persist artifact index for changed outputs and evidence files"
+]
+raw_fallback_policy = "never_start_from_logs"
+
+[retrieval_vnext]
+budget_tokens = 900
+selector_version = "coverage_selector_v1"
+evidence_order = ["runs", "handoffs", "blockers", "plan_chunks", "spec_chunks", "facts", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+scope_escalation = ["run_local", "slug_local", "repo_local"]
+
+[pattern_alignment]
+required = true
+questions = [
+  "what existing repo pattern is this matching?",
+  "if none, why is a new pattern justified?",
+  "what is the migration cost of this new pattern?"
+]
+
+[artifacts]
+required = [
+  "task_service_evidence",
+  ".hephaestus/logs/<feature>-execute.log"
+]
+compact_mode_required = ["task_service_evidence"]
+
+[handoff]
+hands_off_to = ["qa_engineer", "devops_infra", "reviewer", "scrum_master"]
+can_block = ["qa_engineer", "reviewer"]
+can_request_rework_from = ["pd_manager", "system_architect", "scrum_master"]
+done_when = "Implementation is complete, but final approval is granted only by QA + reviewer + ship gate."
+
+[security]
+owasp_focus = [
+  "A01 Broken Access Control",
+  "A02 Security Misconfiguration",
+  "A04 Cryptographic Failures",
+  "A05 Injection",
+  "A07 Authentication Failures",
+  "A10 Mishandling of Exceptional Conditions"
+]
+enforce = [
+  "no bypassing authorization checks on changed code paths",
+  "no insecure default config or secret handling in source",
+  "no unsafe query/command/template construction from untrusted input",
+  "no hidden exception handling that masks security failures"
+]
+primary_owner_for = ["secure implementation of approved design"]
+ship_blocker_escalation = "implementer must hand off unresolved OWASP risks and cannot self-approve"

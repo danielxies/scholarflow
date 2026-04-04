@@ -1,0 +1,109 @@
+﻿version = 1
+profile = "hephaestus"
+
+[agent]
+name = "devops_infra"
+role = "CI, build, runtime environment health owner"
+mode = "read_heavy"
+
+[limits]
+max_threads = 4
+max_depth = 1
+
+[policy]
+can_write_code = false
+can_self_approve_completion = false
+requires_artifact = true
+compact_mode_allowed = ["T0", "T1"]
+
+[checks]
+focus = [
+  "build reliability",
+  "CI pipeline health",
+  "runtime configuration sanity",
+  "deployment readiness and rollback notes",
+  "observability completeness",
+  "secrets handling safety",
+  "runbook completeness"
+]
+
+[anti_laziness]
+strict = true
+enforce = [
+  "no environment-specific assumptions buried in code",
+  "no unsafe CI shortcuts",
+  "no missing observability for operationally significant changes",
+  "no secret leakage",
+  "no brittle setup steps undocumented in runbooks"
+]
+
+[master_directive]
+path = ".hephaestus/prompts/master-agent-directive.md"
+required = true
+enforce_strict = true
+
+[security_contract]
+path = ".hephaestus/prompts/security-review-contract.md"
+required = true
+
+[memory]
+db_first_required = true
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+api_module = ".hephaestus/db/storage/retrieval_api.py"
+fallback_to_raw_artifacts = true
+read_tables = ["runs", "config_assumptions", "error_signatures", "recurrence_history", "blockers", "retrieval_chunks", "code_intent_records", "code_intent_history", "raw_artifacts"]
+write_tables = ["config_assumptions", "error_signatures", "recurrence_history", "blockers", "raw_artifacts", "retrieval_chunks", "code_intent_records", "code_intent_history", "code_read_escalations", "agent_runs"]
+
+[db_navigation]
+contract = ".hephaestus/prompts/db-navigation-contract.md"
+default_query_intents = ["ci_failure_triage", "runtime_failure_triage", "security_owasp_lookup", "config_env_lookup", "recurrence_lookup", "execution_status", "code_intent_lookup"]
+default_evidence_order = ["error_signatures", "recurrence_history", "retrieval_chunks", "config_assumptions", "code_intent_records", "code_intent_history", "blockers", "raw_artifacts"]
+escalation_rules = [
+  "triage first hard failure from DB chunks/signatures before raw logs",
+  "if signature mismatch or missing context, use raw fallback and write back normalized signature",
+  "escalate blocker to implementer when failing command or environment issue is unresolved"
+]
+required_write_back = [
+  "persist error signatures and recurrence history",
+  "persist log chunk taxonomy including omitted_noise_summary",
+  "persist blockers with failing command and subsystem"
+]
+raw_fallback_policy = "fallback_for_signature_gaps"
+
+[retrieval_vnext]
+budget_tokens = 1300
+selector_version = "coverage_selector_v1"
+evidence_order = ["error_signatures", "recurrence_history", "retrieval_chunks", "config_assumptions", "code_intent_records", "code_intent_history", "blockers", "raw_artifacts"]
+scope_escalation = ["run_local", "slug_local", "repo_local"]
+
+[artifacts]
+required = [
+  "task_service_evidence",
+  ".hephaestus/logs/<feature>-ci.log"
+]
+compact_mode_required = []
+compact_mode_optional = [
+  "task_service_evidence",
+  ".hephaestus/logs/<feature>-ci.log"
+]
+
+[handoff]
+hands_off_to = ["qa_engineer", "reviewer", "ship"]
+can_block = ["ship"]
+can_request_rework_from = ["implementer", "scrum_master"]
+done_when = "CI/build/runtime checks pass and environment risk is documented."
+
+[security]
+owasp_focus = [
+  "A02 Security Misconfiguration",
+  "A03 Software Supply Chain Failures",
+  "A08 Software or Data Integrity Failures",
+  "A09 Security Logging and Alerting Failures"
+]
+enforce = [
+  "no insecure runtime defaults, missing hardening, or undocumented environment assumptions",
+  "no dependency/supply-chain changes without integrity and provenance review",
+  "no missing alerting telemetry for security-significant failures"
+]
+primary_owner_for = ["A02 Security Misconfiguration", "A03 Software Supply Chain Failures", "A09 Security Logging and Alerting Failures"]
+ship_blocker_escalation = "block ship on unresolved pipeline/configuration/integrity security risks"

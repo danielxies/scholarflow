@@ -1,0 +1,121 @@
+﻿version = 1
+profile = "hephaestus"
+
+[agent]
+name = "reviewer"
+role = "Correctness, security, and maintainability owner"
+mode = "read_heavy"
+
+[limits]
+max_threads = 4
+max_depth = 1
+
+[policy]
+can_write_code = false
+can_self_approve_completion = false
+requires_artifact = true
+compact_mode_allowed = ["T0", "T1"]
+
+[checks]
+focus = [
+  "functional correctness",
+  "security risk review",
+  "maintainability and clarity",
+  "regression and compatibility risk",
+  "system-wide behavioral regressions and feedback loops",
+  "anti-pattern enforcement across all roles",
+  "explicit severity levels",
+  "explicit release risk judgment",
+  "explicit block/conditional/approve decision"
+]
+
+[anti_laziness]
+strict = true
+enforce = [
+  "all anti-laziness controls from pd_manager, scrum_master, system_architect, implementer, qa_engineer, and devops_infra",
+  "explicit severity levels required for each finding",
+  "explicit release risk judgment required",
+  "explicit final decision required: block or conditional or approve",
+  "no approval that ignores second-order system effects or stale external assumptions"
+]
+
+[master_directive]
+path = ".hephaestus/prompts/master-agent-directive.md"
+required = true
+enforce_strict = true
+
+[security_contract]
+path = ".hephaestus/prompts/security-review-contract.md"
+required = true
+
+[memory]
+db_first_required = true
+db_path = ".hephaestus/db/hephaestus_memory.sqlite3"
+api_module = ".hephaestus/db/storage/retrieval_api.py"
+fallback_to_raw_artifacts = true
+read_tables = ["runs", "review_findings", "verification_results", "blockers", "facts", "retrieval_chunks", "code_intent_records", "code_intent_history", "artifact_index", "raw_artifacts"]
+write_tables = ["review_findings", "blockers", "retrieval_chunks", "code_intent_records", "code_intent_history", "code_read_escalations", "artifact_index", "agent_runs"]
+
+[db_navigation]
+contract = ".hephaestus/prompts/db-navigation-contract.md"
+default_query_intents = ["review_blocker_lookup", "security_blocker_lookup", "security_owasp_lookup", "execution_status", "regression_lookup", "architecture_drift_lookup", "recurrence_lookup", "code_intent_lookup"]
+default_evidence_order = ["review_findings", "verification_results", "retrieval_chunks", "facts", "code_intent_records", "code_intent_history", "blockers", "artifact_index", "raw_artifacts"]
+escalation_rules = [
+  "start from reports/findings/chunks, not logs",
+  "if evidence is insufficient, request targeted chunk retrieval before raw fallback",
+  "if raw fallback is used, persist evidence chunk with source reference before decision"
+]
+required_write_back = [
+  "persist severity findings and ship decision chunks",
+  "persist blockers for unresolved high-severity issues",
+  "persist rationale chunk for block/conditional/approve decision"
+]
+raw_fallback_policy = "reports_first"
+
+[retrieval_vnext]
+budget_tokens = 1300
+selector_version = "coverage_selector_v1"
+evidence_order = ["review_findings", "verification_results", "retrieval_chunks", "facts", "code_intent_records", "code_intent_history", "blockers", "artifact_index", "raw_artifacts"]
+scope_escalation = ["run_local", "slug_local", "repo_local"]
+
+[pattern_alignment]
+required = true
+questions = [
+  "what existing repo pattern is this matching?",
+  "if none, why is a new pattern justified?",
+  "what is the migration cost of this new pattern?"
+]
+
+[artifacts]
+required = [
+  "task_service_evidence"
+]
+compact_mode_required = ["task_service_evidence"]
+compact_mode_optional = ["task_service_evidence"]
+
+[handoff]
+hands_off_to = ["ship", "retro"]
+can_block = ["ship", "retro"]
+can_request_rework_from = ["implementer", "system_architect", "qa_engineer"]
+done_when = "No unresolved high-severity findings remain for release, and the required review evidence exists."
+
+[security]
+owasp_focus = [
+  "A01 Broken Access Control",
+  "A02 Security Misconfiguration",
+  "A03 Software Supply Chain Failures",
+  "A04 Cryptographic Failures",
+  "A05 Injection",
+  "A06 Insecure Design",
+  "A07 Authentication Failures",
+  "A08 Software or Data Integrity Failures",
+  "A09 Security Logging and Alerting Failures",
+  "A10 Mishandling of Exceptional Conditions"
+]
+enforce = [
+  "all OWASP categories must be considered against changed surface",
+  "all high/critical security findings must include explicit severity, evidence, and blocker decision",
+  "security evidence gaps are ship blockers"
+]
+primary_owner_for = ["final OWASP gate and blocker decision"]
+ship_blocker_escalation = "reviewer may block ship for any unresolved high/critical OWASP risk or insufficient evidence"

@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "filePath": "package.json",
+      "baselineLine": 0,
+      "status": "active",
+      "addedAt": 1775329140495,
+      "scope": "file"
+    },
+    {
+      "filePath": "tsconfig.json",
+      "baselineLine": 0,
+      "status": "active",
+      "addedAt": 1775329140495,
+      "scope": "file"
+    },
+    {
+      "filePath": "components.json",
+      "baselineLine": 0,
+      "status": "active",
+      "addedAt": 1775329140495,
+      "scope": "file"
+    },
+    {
+      "filePath": ".synq/cache/semantic/task-snapshots.json",
+      "baselineLine": 0,
+      "status": "active",
+      "addedAt": 1775329140495,
+      "scope": "file"
+    }
+  ]
+}
