@@ -87,6 +87,16 @@ export function LiteratureView({ projectId }: LiteratureViewProps) {
           selectedSearchPaper.topics.map((topic) => topic.name)
         ),
         addedAt: 0,
+        paperType: null,
+        supportabilityLabel: null,
+        reproducibilityClass: null,
+        supportabilityScore: null,
+        supportabilityReason: null,
+        officialRepoUrl: null,
+        supplementaryUrls: null,
+        pdfUrl: null,
+        sourceDiscoveryStatus: null,
+        supportabilityUpdatedAt: null,
       }
     : null;
 

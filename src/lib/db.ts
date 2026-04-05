@@ -227,6 +227,9 @@ function initSchema(db: Database.Database): void {
   `);
 
   ensureColumn(db, "projects", "topic", "TEXT");
+  ensureColumn(db, "conversations", "contextType", "TEXT");
+  ensureColumn(db, "conversations", "contextId", "TEXT");
+  ensureColumn(db, "conversations", "contextPayload", "TEXT");
   ensureColumn(db, "papers", "provider", "TEXT");
   ensureColumn(db, "papers", "openAlexId", "TEXT");
   ensureColumn(db, "papers", "publicationType", "TEXT");
@@ -235,6 +238,181 @@ function initSchema(db: Database.Database): void {
   ensureColumn(db, "papers", "relevanceScore", "INTEGER");
   ensureColumn(db, "papers", "relevanceReason", "TEXT");
   ensureColumn(db, "papers", "summaryStatus", "TEXT");
+  ensureColumn(db, "papers", "paperType", "TEXT");
+  ensureColumn(db, "papers", "supportabilityLabel", "TEXT");
+  ensureColumn(db, "papers", "reproducibilityClass", "TEXT");
+  ensureColumn(db, "papers", "supportabilityScore", "INTEGER");
+  ensureColumn(db, "papers", "supportabilityReason", "TEXT");
+  ensureColumn(db, "papers", "officialRepoUrl", "TEXT");
+  ensureColumn(db, "papers", "supplementaryUrls", "TEXT");
+  ensureColumn(db, "papers", "pdfUrl", "TEXT");
+  ensureColumn(db, "papers", "sourceDiscoveryStatus", "TEXT");
+  ensureColumn(db, "papers", "supportabilityUpdatedAt", "INTEGER");
+  ensureColumn(db, "hypotheses", "kind", "TEXT NOT NULL DEFAULT 'custom'");
+  ensureColumn(db, "hypotheses", "paperId", "TEXT");
+  ensureColumn(db, "hypotheses", "workflowStatus", "TEXT");
+  ensureColumn(db, "hypotheses", "phase", "TEXT");
+  ensureColumn(db, "hypotheses", "verdict", "TEXT");
+  ensureColumn(db, "hypotheses", "targetMetric", "TEXT");
+  ensureColumn(db, "hypotheses", "targetValue", "REAL");
+  ensureColumn(db, "hypotheses", "tolerance", "REAL");
+  ensureColumn(db, "hypotheses", "bestValue", "REAL");
+  ensureColumn(db, "hypotheses", "gap", "REAL");
+  ensureColumn(db, "hypotheses", "supportabilityLabel", "TEXT");
+  ensureColumn(db, "hypotheses", "currentExperimentId", "TEXT");
+  ensureColumn(db, "hypotheses", "lastActivityAt", "INTEGER");
+  ensureColumn(db, "hypotheses", "blockedAt", "INTEGER");
+  ensureColumn(db, "experiments", "attemptNumber", "INTEGER NOT NULL DEFAULT 1");
+  ensureColumn(db, "experiments", "workflowStatus", "TEXT");
+  ensureColumn(db, "experiments", "executionMode", "TEXT");
+  ensureColumn(db, "experiments", "fallbackMode", "TEXT");
+  ensureColumn(db, "experiments", "runnerId", "TEXT");
+  ensureColumn(db, "experiments", "phase", "TEXT");
+  ensureColumn(db, "experiments", "innerLoopCount", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "experiments", "outerLoopCount", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "experiments", "environmentManifest", "TEXT");
+  ensureColumn(db, "experiments", "progressPercent", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn(db, "experiments", "progressDetails", "TEXT NOT NULL DEFAULT ''");
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS reproduction_plans (
+      id                   TEXT PRIMARY KEY,
+      projectId            TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      hypothesisId         TEXT NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+      experimentId         TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+      paperId              TEXT NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+      paperType            TEXT,
+      targetClaim          TEXT NOT NULL,
+      targetMetric         TEXT,
+      targetValue          REAL,
+      tolerance            REAL,
+      primaryExecutionMode TEXT NOT NULL,
+      fallbackExecutionMode TEXT,
+      acceptedSources      TEXT NOT NULL DEFAULT '[]',
+      datasetSpec          TEXT,
+      environmentSpec      TEXT,
+      assumptionPolicy     TEXT NOT NULL,
+      escalationPolicy     TEXT NOT NULL,
+      successPolicy        TEXT NOT NULL,
+      settingsSnapshot     TEXT NOT NULL DEFAULT '{}',
+      createdAt            INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_reproduction_plans_hypothesis
+      ON reproduction_plans (hypothesisId, createdAt DESC);
+
+    CREATE TABLE IF NOT EXISTS custom_experiment_contexts (
+      id               TEXT PRIMARY KEY,
+      projectId        TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      hypothesisId     TEXT NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+      experimentId     TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+      description      TEXT NOT NULL,
+      benchmark        TEXT,
+      repoUrl          TEXT,
+      datasetNote      TEXT,
+      contextPaperIds  TEXT NOT NULL DEFAULT '[]',
+      settingsSnapshot TEXT NOT NULL DEFAULT '{}',
+      createdAt        INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_custom_experiment_contexts_hypothesis
+      ON custom_experiment_contexts (hypothesisId, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_custom_experiment_contexts_experiment
+      ON custom_experiment_contexts (experimentId, createdAt DESC);
+
+    CREATE TABLE IF NOT EXISTS experiment_findings (
+      id           TEXT PRIMARY KEY,
+      projectId    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      hypothesisId TEXT NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+      experimentId TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+      type         TEXT NOT NULL,
+      severity     TEXT NOT NULL,
+      confidence   REAL,
+      source       TEXT,
+      message      TEXT NOT NULL,
+      metadata     TEXT,
+      timestamp    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_experiment_findings_experiment
+      ON experiment_findings (experimentId, timestamp DESC);
+
+    CREATE TABLE IF NOT EXISTS experiment_logs (
+      id           TEXT PRIMARY KEY,
+      projectId    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      hypothesisId TEXT NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+      experimentId TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+      phase        TEXT NOT NULL,
+      kind         TEXT NOT NULL,
+      message      TEXT NOT NULL,
+      metadata     TEXT,
+      timestamp    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_experiment_logs_experiment
+      ON experiment_logs (experimentId, timestamp DESC);
+
+    CREATE TABLE IF NOT EXISTS experiment_artifacts (
+      id           TEXT PRIMARY KEY,
+      projectId    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      hypothesisId TEXT NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+      experimentId TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+      type         TEXT NOT NULL,
+      uri          TEXT NOT NULL,
+      metadata     TEXT,
+      createdAt    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_experiment_artifacts_experiment
+      ON experiment_artifacts (experimentId, createdAt DESC);
+
+    CREATE TABLE IF NOT EXISTS execution_jobs (
+      id              TEXT PRIMARY KEY,
+      projectId       TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      hypothesisId    TEXT NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+      experimentId    TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+      runnerBackend   TEXT NOT NULL,
+      runnerJobId     TEXT NOT NULL,
+      status          TEXT NOT NULL,
+      computeTier     TEXT,
+      repoUrl         TEXT,
+      repoRef         TEXT,
+      currentCommand  TEXT,
+      lastHeartbeatAt INTEGER,
+      startedAt       INTEGER,
+      completedAt     INTEGER,
+      error           TEXT,
+      resultSummary   TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_execution_jobs_experiment
+      ON execution_jobs (experimentId, rowid DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_execution_jobs_runner
+      ON execution_jobs (runnerBackend, runnerJobId);
+
+    CREATE TABLE IF NOT EXISTS experiment_blockers (
+      id            TEXT PRIMARY KEY,
+      projectId     TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      hypothesisId  TEXT NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+      experimentId  TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+      status        TEXT NOT NULL DEFAULT 'open',
+      blockerType   TEXT NOT NULL,
+      message       TEXT NOT NULL,
+      requiredInput TEXT,
+      resolution    TEXT,
+      createdAt     INTEGER NOT NULL,
+      resolvedAt    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_experiment_blockers_hypothesis
+      ON experiment_blockers (hypothesisId, createdAt DESC);
+
+    CREATE TABLE IF NOT EXISTS workflow_checkpoints (
+      id           TEXT PRIMARY KEY,
+      projectId    TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      hypothesisId TEXT NOT NULL REFERENCES hypotheses(id) ON DELETE CASCADE,
+      experimentId TEXT NOT NULL REFERENCES experiments(id) ON DELETE CASCADE,
+      stage        TEXT NOT NULL,
+      status       TEXT NOT NULL,
+      payload      TEXT,
+      createdAt    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_workflow_checkpoints_experiment
+      ON workflow_checkpoints (experimentId, createdAt DESC);
+  `);
 
   db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_papers_project_openalex
@@ -296,6 +474,9 @@ interface ConversationRow {
   projectId: string;
   title: string;
   updatedAt: number;
+  contextType?: string | null;
+  contextId?: string | null;
+  contextPayload?: string | null;
 }
 
 interface MessageRow {
@@ -328,6 +509,20 @@ interface HypothesisRow {
   priority: number;
   createdAt: number;
   completedAt: number | null;
+  kind?: string | null;
+  paperId?: string | null;
+  workflowStatus?: string | null;
+  phase?: string | null;
+  verdict?: string | null;
+  targetMetric?: string | null;
+  targetValue?: number | null;
+  tolerance?: number | null;
+  bestValue?: number | null;
+  gap?: number | null;
+  supportabilityLabel?: string | null;
+  currentExperimentId?: string | null;
+  lastActivityAt?: number | null;
+  blockedAt?: number | null;
 }
 
 interface ExperimentRow {
@@ -344,6 +539,17 @@ interface ExperimentRow {
   logs: string | null;
   startedAt: number | null;
   completedAt: number | null;
+  attemptNumber?: number;
+  workflowStatus?: string | null;
+  executionMode?: string | null;
+  fallbackMode?: string | null;
+  runnerId?: string | null;
+  phase?: string | null;
+  innerLoopCount?: number;
+  outerLoopCount?: number;
+  environmentManifest?: string | null;
+  progressPercent?: number;
+  progressDetails?: string | null;
 }
 
 interface ResearchStateRow {
@@ -405,6 +611,134 @@ interface PaperRow {
   notes: string | null;
   tags: string;
   addedAt: number;
+  paperType?: string | null;
+  supportabilityLabel?: string | null;
+  reproducibilityClass?: string | null;
+  supportabilityScore?: number | null;
+  supportabilityReason?: string | null;
+  officialRepoUrl?: string | null;
+  supplementaryUrls?: string | null;
+  pdfUrl?: string | null;
+  sourceDiscoveryStatus?: string | null;
+  supportabilityUpdatedAt?: number | null;
+}
+
+interface ReproductionPlanRow {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  experimentId: string;
+  paperId: string;
+  paperType: string | null;
+  targetClaim: string;
+  targetMetric: string | null;
+  targetValue: number | null;
+  tolerance: number | null;
+  primaryExecutionMode: string;
+  fallbackExecutionMode: string | null;
+  acceptedSources: string;
+  datasetSpec: string | null;
+  environmentSpec: string | null;
+  assumptionPolicy: string;
+  escalationPolicy: string;
+  successPolicy: string;
+  settingsSnapshot: string;
+  createdAt: number;
+}
+
+interface CustomExperimentContextRow {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  experimentId: string;
+  description: string;
+  benchmark: string | null;
+  repoUrl: string | null;
+  datasetNote: string | null;
+  contextPaperIds: string;
+  settingsSnapshot: string;
+  createdAt: number;
+}
+
+interface ExperimentFindingRow {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  experimentId: string;
+  type: string;
+  severity: string;
+  confidence: number | null;
+  source: string | null;
+  message: string;
+  metadata: string | null;
+  timestamp: number;
+}
+
+interface ExperimentLogRow {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  experimentId: string;
+  phase: string;
+  kind: string;
+  message: string;
+  metadata: string | null;
+  timestamp: number;
+}
+
+interface ExperimentArtifactRow {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  experimentId: string;
+  type: string;
+  uri: string;
+  metadata: string | null;
+  createdAt: number;
+}
+
+interface ExecutionJobRow {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  experimentId: string;
+  runnerBackend: string;
+  runnerJobId: string;
+  status: string;
+  computeTier: string | null;
+  repoUrl: string | null;
+  repoRef: string | null;
+  currentCommand: string | null;
+  lastHeartbeatAt: number | null;
+  startedAt: number | null;
+  completedAt: number | null;
+  error: string | null;
+  resultSummary: string | null;
+}
+
+interface ExperimentBlockerRow {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  experimentId: string;
+  status: string;
+  blockerType: string;
+  message: string;
+  requiredInput: string | null;
+  resolution: string | null;
+  createdAt: number;
+  resolvedAt: number | null;
+}
+
+interface WorkflowCheckpointRow {
+  id: string;
+  projectId: string;
+  hypothesisId: string;
+  experimentId: string;
+  stage: string;
+  status: string;
+  payload: string | null;
+  createdAt: number;
 }
 
 // Exported types match the frontend expectations (_id, _creationTime)
@@ -452,6 +786,51 @@ export interface Paper extends Omit<PaperRow, "id"> {
   _id: string;
   _creationTime: number;
 }
+export interface ReproductionPlan extends Omit<ReproductionPlanRow, "id"> {
+  _id: string;
+  _creationTime: number;
+}
+export interface CustomExperimentContext
+  extends Omit<CustomExperimentContextRow, "id"> {
+  _id: string;
+  _creationTime: number;
+}
+export interface ExperimentFinding extends Omit<ExperimentFindingRow, "id"> {
+  _id: string;
+  _creationTime: number;
+}
+export interface ExperimentLogEntry extends Omit<ExperimentLogRow, "id"> {
+  _id: string;
+  _creationTime: number;
+}
+export interface ExperimentArtifact extends Omit<ExperimentArtifactRow, "id"> {
+  _id: string;
+  _creationTime: number;
+}
+export interface ExecutionJob extends Omit<ExecutionJobRow, "id"> {
+  _id: string;
+  _creationTime: number;
+}
+export interface ExperimentBlocker extends Omit<ExperimentBlockerRow, "id"> {
+  _id: string;
+  _creationTime: number;
+}
+export interface WorkflowCheckpoint extends Omit<WorkflowCheckpointRow, "id"> {
+  _id: string;
+  _creationTime: number;
+}
+export interface ExperimentWorkspace {
+  hypothesis: Hypothesis;
+  experiment: Experiment | null;
+  plan: ReproductionPlan | null;
+  customContext: CustomExperimentContext | null;
+  blocker: ExperimentBlocker | null;
+  findings: ExperimentFinding[];
+  logs: ExperimentLogEntry[];
+  artifacts: ExperimentArtifact[];
+  executionJob: ExecutionJob | null;
+  checkpoints: WorkflowCheckpoint[];
+}
 
 // Map DB rows to frontend shape
 function mapRow<T extends { id: string; updatedAt?: number }>(
@@ -465,6 +844,10 @@ function mapRows<T extends { id: string; updatedAt?: number }>(
   rows: T[]
 ): (Omit<T, "id"> & { _id: string; _creationTime: number })[] {
   return rows.map(mapRow);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // ---------------------------------------------------------------------------
@@ -884,16 +1267,43 @@ export function getConversationById(id: string): Conversation | undefined {
   return row ? mapRow(row) as Conversation : undefined;
 }
 
+export function getConversationByContext(
+  projectId: string,
+  contextType: string,
+  contextId: string
+): Conversation | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM conversations WHERE projectId = ? AND contextType = ? AND contextId = ? ORDER BY updatedAt DESC LIMIT 1"
+    )
+    .get(projectId, contextType, contextId) as ConversationRow | undefined;
+  return row ? mapRow(row) as Conversation : undefined;
+}
+
 export function createConversation(
   projectId: string,
-  title: string
+  title: string,
+  options?: {
+    contextType?: string | null;
+    contextId?: string | null;
+    contextPayload?: string | null;
+  }
 ): string {
   const db = getDb();
   const id = crypto.randomUUID();
   const now = Date.now();
   db.prepare(
-    "INSERT INTO conversations (id, projectId, title, updatedAt) VALUES (?, ?, ?, ?)"
-  ).run(id, projectId, title, now);
+    "INSERT INTO conversations (id, projectId, title, updatedAt, contextType, contextId, contextPayload) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(
+    id,
+    projectId,
+    title,
+    now,
+    options?.contextType ?? null,
+    options?.contextId ?? null,
+    options?.contextPayload ?? null
+  );
   return id;
 }
 
@@ -1042,9 +1452,52 @@ export function deactivateSkill(projectId: string, skillId: string): void {
 export function getHypotheses(projectId: string): Hypothesis[] {
   const db = getDb();
   const rows = db
-    .prepare("SELECT * FROM hypotheses WHERE projectId = ? ORDER BY createdAt DESC")
+    .prepare(
+      "SELECT * FROM hypotheses WHERE projectId = ? ORDER BY createdAt DESC, rowid DESC"
+    )
     .all(projectId) as HypothesisRow[];
   return mapRows(rows) as Hypothesis[];
+}
+
+export function generateUniqueHypothesisTitle(
+  projectId: string,
+  desiredTitle: string
+): string {
+  return generateUniqueHypothesisTitleExcluding(projectId, desiredTitle);
+}
+
+export function generateUniqueHypothesisTitleExcluding(
+  projectId: string,
+  desiredTitle: string,
+  excludedHypothesisId?: string
+): string {
+  const db = getDb();
+  const baseTitle = desiredTitle.trim();
+  if (!baseTitle) {
+    return desiredTitle;
+  }
+
+  const rows = excludedHypothesisId
+    ? ((db
+        .prepare("SELECT title FROM hypotheses WHERE projectId = ? AND id != ?")
+        .all(projectId, excludedHypothesisId) as Array<{ title: string }>))
+    : ((db
+        .prepare("SELECT title FROM hypotheses WHERE projectId = ?")
+        .all(projectId) as Array<{ title: string }>));
+
+  let maxOrdinal = 0;
+  const exactPattern = new RegExp(`^${escapeRegExp(baseTitle)}(?: \\((\\d+)\\))?$`);
+
+  for (const row of rows) {
+    const match = row.title.match(exactPattern);
+    if (!match) continue;
+    const ordinal = match[1] ? Number(match[1]) : 1;
+    if (Number.isFinite(ordinal)) {
+      maxOrdinal = Math.max(maxOrdinal, ordinal);
+    }
+  }
+
+  return maxOrdinal === 0 ? baseTitle : `${baseTitle} (${maxOrdinal + 1})`;
 }
 
 export function getHypothesisById(id: string): Hypothesis | undefined {
@@ -1058,14 +1511,60 @@ export function createHypothesis(
   title: string,
   description: string,
   rationale: string,
-  expectedOutcome: string
+  expectedOutcome: string,
+  options?: Partial<
+    Pick<
+      HypothesisRow,
+      | "kind"
+      | "paperId"
+      | "workflowStatus"
+      | "phase"
+      | "verdict"
+      | "targetMetric"
+      | "targetValue"
+      | "tolerance"
+      | "bestValue"
+      | "gap"
+      | "supportabilityLabel"
+      | "currentExperimentId"
+      | "lastActivityAt"
+      | "blockedAt"
+    >
+  >
 ): string {
   const db = getDb();
   const id = crypto.randomUUID();
   const now = Date.now();
   db.prepare(
-    "INSERT INTO hypotheses (id, projectId, title, description, rationale, expectedOutcome, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).run(id, projectId, title, description, rationale, expectedOutcome, now);
+    `INSERT INTO hypotheses (
+      id, projectId, title, description, rationale, expectedOutcome, createdAt,
+      kind, paperId, workflowStatus, phase, verdict, targetMetric, targetValue,
+      tolerance, bestValue, gap, supportabilityLabel, currentExperimentId,
+      lastActivityAt, blockedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    projectId,
+    title,
+    description,
+    rationale,
+    expectedOutcome,
+    now,
+    options?.kind ?? "custom",
+    options?.paperId ?? null,
+    options?.workflowStatus ?? null,
+    options?.phase ?? null,
+    options?.verdict ?? null,
+    options?.targetMetric ?? null,
+    options?.targetValue ?? null,
+    options?.tolerance ?? null,
+    options?.bestValue ?? null,
+    options?.gap ?? null,
+    options?.supportabilityLabel ?? null,
+    options?.currentExperimentId ?? null,
+    options?.lastActivityAt ?? now,
+    options?.blockedAt ?? null
+  );
   return id;
 }
 
@@ -1079,6 +1578,31 @@ export function updateHypothesisStatus(
   db.prepare(
     "UPDATE hypotheses SET status = ?, actualOutcome = COALESCE(?, actualOutcome), completedAt = COALESCE(?, completedAt) WHERE id = ?"
   ).run(status, actualOutcome ?? null, completedAt, id);
+}
+
+export function updateHypothesis(
+  id: string,
+  updates: Partial<HypothesisRow>
+): void {
+  const db = getDb();
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (key === "id" || key === "projectId" || value === undefined) continue;
+    setClauses.push(`${key} = ?`);
+    values.push(value);
+  }
+
+  if (setClauses.length === 0) return;
+
+  if (!Object.prototype.hasOwnProperty.call(updates, "lastActivityAt")) {
+    setClauses.push("lastActivityAt = ?");
+    values.push(Date.now());
+  }
+
+  values.push(id);
+  db.prepare(`UPDATE hypotheses SET ${setClauses.join(", ")} WHERE id = ?`).run(...values);
 }
 
 // ---------------------------------------------------------------------------
@@ -1096,9 +1620,27 @@ export function getExperiments(projectId: string): Experiment[] {
 export function getExperimentsByHypothesis(hypothesisId: string): Experiment[] {
   const db = getDb();
   const rows = db
-    .prepare("SELECT * FROM experiments WHERE hypothesisId = ? ORDER BY rowid ASC")
+    .prepare("SELECT * FROM experiments WHERE hypothesisId = ? ORDER BY attemptNumber ASC, rowid ASC")
     .all(hypothesisId) as ExperimentRow[];
   return mapRows(rows) as Experiment[];
+}
+
+export function getExperimentById(id: string): Experiment | undefined {
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM experiments WHERE id = ?").get(id) as ExperimentRow | undefined;
+  return row ? (mapRow(row) as Experiment) : undefined;
+}
+
+export function getLatestExperimentByHypothesis(
+  hypothesisId: string
+): Experiment | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM experiments WHERE hypothesisId = ? ORDER BY attemptNumber DESC, rowid DESC LIMIT 1"
+    )
+    .get(hypothesisId) as ExperimentRow | undefined;
+  return row ? (mapRow(row) as Experiment) : undefined;
 }
 
 export function createExperiment(
@@ -1107,13 +1649,71 @@ export function createExperiment(
   name: string,
   protocol: string,
   skillsUsed: string[],
-  config: Record<string, unknown>
+  config: Record<string, unknown>,
+  options?: Partial<
+    Pick<
+      ExperimentRow,
+      | "attemptNumber"
+      | "workflowStatus"
+      | "executionMode"
+      | "fallbackMode"
+      | "runnerId"
+      | "phase"
+      | "innerLoopCount"
+      | "outerLoopCount"
+      | "environmentManifest"
+      | "progressPercent"
+      | "progressDetails"
+      | "results"
+      | "metrics"
+      | "logs"
+      | "startedAt"
+      | "completedAt"
+      | "status"
+    >
+  >
 ): string {
   const db = getDb();
   const id = crypto.randomUUID();
+  const nextAttempt =
+    options?.attemptNumber ??
+    (((db
+      .prepare("SELECT MAX(attemptNumber) as maxAttempt FROM experiments WHERE hypothesisId = ?")
+      .get(hypothesisId) as { maxAttempt?: number | null } | undefined)?.maxAttempt ?? 0) + 1);
   db.prepare(
-    "INSERT INTO experiments (id, projectId, hypothesisId, name, protocol, skillsUsed, config) VALUES (?, ?, ?, ?, ?, ?, ?)"
-  ).run(id, projectId, hypothesisId, name, protocol, JSON.stringify(skillsUsed), JSON.stringify(config));
+    `INSERT INTO experiments (
+      id, projectId, hypothesisId, name, protocol, status, skillsUsed, config,
+      results, metrics, logs, startedAt, completedAt, attemptNumber,
+      workflowStatus, executionMode, fallbackMode, runnerId, phase,
+      innerLoopCount, outerLoopCount, environmentManifest, progressPercent,
+      progressDetails
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    projectId,
+    hypothesisId,
+    name,
+    protocol,
+    options?.status ?? "planned",
+    JSON.stringify(skillsUsed),
+    JSON.stringify(config),
+    options?.results ?? null,
+    options?.metrics ?? "{}",
+    options?.logs ?? null,
+    options?.startedAt ?? null,
+    options?.completedAt ?? null,
+    nextAttempt,
+    options?.workflowStatus ?? null,
+    options?.executionMode ?? null,
+    options?.fallbackMode ?? null,
+    options?.runnerId ?? null,
+    options?.phase ?? null,
+    options?.innerLoopCount ?? 0,
+    options?.outerLoopCount ?? 0,
+    options?.environmentManifest ?? null,
+    options?.progressPercent ?? 0,
+    options?.progressDetails ?? ""
+  );
   return id;
 }
 
@@ -1126,6 +1726,26 @@ export function updateExperimentStatus(id: string, status: string): void {
   ).run(status, startedAt, completedAt, id);
 }
 
+export function updateExperiment(
+  id: string,
+  updates: Partial<ExperimentRow>
+): void {
+  const db = getDb();
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (key === "id" || key === "projectId" || key === "hypothesisId" || value === undefined) continue;
+    setClauses.push(`${key} = ?`);
+    values.push(value);
+  }
+
+  if (setClauses.length === 0) return;
+
+  values.push(id);
+  db.prepare(`UPDATE experiments SET ${setClauses.join(", ")} WHERE id = ?`).run(...values);
+}
+
 export function updateExperimentResults(
   id: string,
   results: string,
@@ -1133,7 +1753,7 @@ export function updateExperimentResults(
 ): void {
   const db = getDb();
   db.prepare(
-    "UPDATE experiments SET results = ?, metrics = ?, status = 'completed', completedAt = ? WHERE id = ?"
+    "UPDATE experiments SET results = ?, metrics = ?, status = 'completed', workflowStatus = COALESCE(workflowStatus, 'completed'), completedAt = ? WHERE id = ?"
   ).run(results, JSON.stringify(metrics), Date.now(), id);
 }
 
@@ -1250,6 +1870,476 @@ export function toggleMemoryPin(id: string): void {
 export function deleteResearchMemory(id: string): void {
   const db = getDb();
   db.prepare("DELETE FROM research_memory WHERE id = ?").run(id);
+}
+
+// ---------------------------------------------------------------------------
+// Reproduction workflow
+// ---------------------------------------------------------------------------
+
+export function createReproductionPlan(
+  plan: Omit<ReproductionPlanRow, "id" | "createdAt">
+): string {
+  const db = getDb();
+  const id = crypto.randomUUID();
+  const createdAt = Date.now();
+  db.prepare(
+    `INSERT INTO reproduction_plans (
+      id, projectId, hypothesisId, experimentId, paperId, paperType, targetClaim,
+      targetMetric, targetValue, tolerance, primaryExecutionMode,
+      fallbackExecutionMode, acceptedSources, datasetSpec, environmentSpec,
+      assumptionPolicy, escalationPolicy, successPolicy, settingsSnapshot, createdAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    plan.projectId,
+    plan.hypothesisId,
+    plan.experimentId,
+    plan.paperId,
+    plan.paperType,
+    plan.targetClaim,
+    plan.targetMetric,
+    plan.targetValue,
+    plan.tolerance,
+    plan.primaryExecutionMode,
+    plan.fallbackExecutionMode,
+    plan.acceptedSources,
+    plan.datasetSpec,
+    plan.environmentSpec,
+    plan.assumptionPolicy,
+    plan.escalationPolicy,
+    plan.successPolicy,
+    plan.settingsSnapshot,
+    createdAt
+  );
+  return id;
+}
+
+export function getReproductionPlanByHypothesis(
+  hypothesisId: string
+): ReproductionPlan | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM reproduction_plans WHERE hypothesisId = ? ORDER BY createdAt DESC LIMIT 1"
+    )
+    .get(hypothesisId) as ReproductionPlanRow | undefined;
+  return row ? (mapRow(row) as ReproductionPlan) : undefined;
+}
+
+export function updateReproductionPlan(
+  id: string,
+  updates: Partial<ReproductionPlanRow>
+): void {
+  const db = getDb();
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (key === "id" || value === undefined) continue;
+    setClauses.push(`${key} = ?`);
+    values.push(value);
+  }
+
+  if (setClauses.length === 0) return;
+
+  values.push(id);
+  db.prepare(`UPDATE reproduction_plans SET ${setClauses.join(", ")} WHERE id = ?`).run(...values);
+}
+
+export function createCustomExperimentContext(
+  context: Omit<CustomExperimentContextRow, "id" | "createdAt">
+): string {
+  const db = getDb();
+  const id = crypto.randomUUID();
+  const createdAt = Date.now();
+  db.prepare(
+    `INSERT INTO custom_experiment_contexts (
+      id, projectId, hypothesisId, experimentId, description, benchmark, repoUrl,
+      datasetNote, contextPaperIds, settingsSnapshot, createdAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    context.projectId,
+    context.hypothesisId,
+    context.experimentId,
+    context.description,
+    context.benchmark ?? null,
+    context.repoUrl ?? null,
+    context.datasetNote ?? null,
+    context.contextPaperIds,
+    context.settingsSnapshot,
+    createdAt
+  );
+  return id;
+}
+
+export function getCustomExperimentContextByHypothesis(
+  hypothesisId: string
+): CustomExperimentContext | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM custom_experiment_contexts WHERE hypothesisId = ? ORDER BY createdAt DESC LIMIT 1"
+    )
+    .get(hypothesisId) as CustomExperimentContextRow | undefined;
+  return row ? (mapRow(row) as CustomExperimentContext) : undefined;
+}
+
+export function getCustomExperimentContextByExperiment(
+  experimentId: string
+): CustomExperimentContext | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM custom_experiment_contexts WHERE experimentId = ? ORDER BY createdAt DESC LIMIT 1"
+    )
+    .get(experimentId) as CustomExperimentContextRow | undefined;
+  return row ? (mapRow(row) as CustomExperimentContext) : undefined;
+}
+
+export function addExperimentFinding(
+  finding: Omit<ExperimentFindingRow, "id" | "timestamp">
+): string {
+  const db = getDb();
+  const id = crypto.randomUUID();
+  const timestamp = Date.now();
+  db.prepare(
+    `INSERT INTO experiment_findings (
+      id, projectId, hypothesisId, experimentId, type, severity, confidence,
+      source, message, metadata, timestamp
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    finding.projectId,
+    finding.hypothesisId,
+    finding.experimentId,
+    finding.type,
+    finding.severity,
+    finding.confidence ?? null,
+    finding.source ?? null,
+    finding.message,
+    finding.metadata ?? null,
+    timestamp
+  );
+  return id;
+}
+
+export function getExperimentFindings(
+  experimentId: string
+): ExperimentFinding[] {
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT * FROM experiment_findings WHERE experimentId = ? ORDER BY timestamp DESC")
+    .all(experimentId) as ExperimentFindingRow[];
+  return mapRows(rows) as ExperimentFinding[];
+}
+
+export function addExperimentLog(
+  log: Omit<ExperimentLogRow, "id" | "timestamp">
+): string {
+  const db = getDb();
+  const id = crypto.randomUUID();
+  const timestamp = Date.now();
+  db.prepare(
+    `INSERT INTO experiment_logs (
+      id, projectId, hypothesisId, experimentId, phase, kind, message, metadata, timestamp
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    log.projectId,
+    log.hypothesisId,
+    log.experimentId,
+    log.phase,
+    log.kind,
+    log.message,
+    log.metadata ?? null,
+    timestamp
+  );
+  return id;
+}
+
+export function getExperimentLogs(
+  experimentId: string
+): ExperimentLogEntry[] {
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT * FROM experiment_logs WHERE experimentId = ? ORDER BY timestamp DESC")
+    .all(experimentId) as ExperimentLogRow[];
+  return mapRows(rows) as ExperimentLogEntry[];
+}
+
+export function addExperimentArtifact(
+  artifact: Omit<ExperimentArtifactRow, "id" | "createdAt">
+): string {
+  const db = getDb();
+  const id = crypto.randomUUID();
+  const createdAt = Date.now();
+  db.prepare(
+    `INSERT INTO experiment_artifacts (
+      id, projectId, hypothesisId, experimentId, type, uri, metadata, createdAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    artifact.projectId,
+    artifact.hypothesisId,
+    artifact.experimentId,
+    artifact.type,
+    artifact.uri,
+    artifact.metadata ?? null,
+    createdAt
+  );
+  return id;
+}
+
+export function getExperimentArtifacts(
+  experimentId: string
+): ExperimentArtifact[] {
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT * FROM experiment_artifacts WHERE experimentId = ? ORDER BY createdAt DESC")
+    .all(experimentId) as ExperimentArtifactRow[];
+  return mapRows(rows) as ExperimentArtifact[];
+}
+
+export function getLatestExperimentArtifactByType(
+  experimentId: string,
+  type: string
+): ExperimentArtifact | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM experiment_artifacts WHERE experimentId = ? AND type = ? ORDER BY createdAt DESC LIMIT 1"
+    )
+    .get(experimentId, type) as ExperimentArtifactRow | undefined;
+  return row ? (mapRow(row) as ExperimentArtifact) : undefined;
+}
+
+export function createExecutionJob(
+  job: Omit<ExecutionJobRow, "id">
+): string {
+  const db = getDb();
+  const id = crypto.randomUUID();
+  db.prepare(
+    `INSERT INTO execution_jobs (
+      id, projectId, hypothesisId, experimentId, runnerBackend, runnerJobId,
+      status, computeTier, repoUrl, repoRef, currentCommand, lastHeartbeatAt,
+      startedAt, completedAt, error, resultSummary
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    job.projectId,
+    job.hypothesisId,
+    job.experimentId,
+    job.runnerBackend,
+    job.runnerJobId,
+    job.status,
+    job.computeTier ?? null,
+    job.repoUrl ?? null,
+    job.repoRef ?? null,
+    job.currentCommand ?? null,
+    job.lastHeartbeatAt ?? null,
+    job.startedAt ?? null,
+    job.completedAt ?? null,
+    job.error ?? null,
+    job.resultSummary ?? null
+  );
+  return id;
+}
+
+export function getExecutionJobById(id: string): ExecutionJob | undefined {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT * FROM execution_jobs WHERE id = ?")
+    .get(id) as ExecutionJobRow | undefined;
+  return row ? (mapRow(row) as ExecutionJob) : undefined;
+}
+
+export function getLatestExecutionJobByExperiment(
+  experimentId: string
+): ExecutionJob | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM execution_jobs WHERE experimentId = ? ORDER BY rowid DESC LIMIT 1"
+    )
+    .get(experimentId) as ExecutionJobRow | undefined;
+  return row ? (mapRow(row) as ExecutionJob) : undefined;
+}
+
+export function getExecutionJobByRunnerJobId(
+  runnerBackend: string,
+  runnerJobId: string
+): ExecutionJob | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM execution_jobs WHERE runnerBackend = ? AND runnerJobId = ?"
+    )
+    .get(runnerBackend, runnerJobId) as ExecutionJobRow | undefined;
+  return row ? (mapRow(row) as ExecutionJob) : undefined;
+}
+
+export function updateExecutionJob(
+  id: string,
+  updates: Partial<ExecutionJobRow>
+): void {
+  const db = getDb();
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (
+      key === "id" ||
+      key === "projectId" ||
+      key === "hypothesisId" ||
+      key === "experimentId" ||
+      value === undefined
+    ) {
+      continue;
+    }
+
+    setClauses.push(`${key} = ?`);
+    values.push(value);
+  }
+
+  if (setClauses.length === 0) return;
+
+  values.push(id);
+  db.prepare(`UPDATE execution_jobs SET ${setClauses.join(", ")} WHERE id = ?`).run(
+    ...values
+  );
+}
+
+export function createExperimentBlocker(
+  blocker: Omit<
+    ExperimentBlockerRow,
+    "id" | "createdAt" | "resolvedAt" | "status" | "resolution"
+  >
+): string {
+  const db = getDb();
+  const id = crypto.randomUUID();
+  const createdAt = Date.now();
+  db.prepare(
+    `INSERT INTO experiment_blockers (
+      id, projectId, hypothesisId, experimentId, status, blockerType, message,
+      requiredInput, resolution, createdAt, resolvedAt
+    ) VALUES (?, ?, ?, ?, 'open', ?, ?, ?, NULL, ?, NULL)`
+  ).run(
+    id,
+    blocker.projectId,
+    blocker.hypothesisId,
+    blocker.experimentId,
+    blocker.blockerType,
+    blocker.message,
+    blocker.requiredInput ?? null,
+    createdAt
+  );
+  return id;
+}
+
+export function getOpenExperimentBlocker(
+  hypothesisId: string
+): ExperimentBlocker | undefined {
+  const db = getDb();
+  const row = db
+    .prepare(
+      "SELECT * FROM experiment_blockers WHERE hypothesisId = ? AND status = 'open' ORDER BY createdAt DESC LIMIT 1"
+    )
+    .get(hypothesisId) as ExperimentBlockerRow | undefined;
+  return row ? (mapRow(row) as ExperimentBlocker) : undefined;
+}
+
+export function getExperimentBlockerById(
+  id: string
+): ExperimentBlocker | undefined {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT * FROM experiment_blockers WHERE id = ?")
+    .get(id) as ExperimentBlockerRow | undefined;
+  return row ? (mapRow(row) as ExperimentBlocker) : undefined;
+}
+
+export function resolveExperimentBlocker(id: string, resolution: string): void {
+  const db = getDb();
+  db.prepare(
+    "UPDATE experiment_blockers SET status = 'resolved', resolution = ?, resolvedAt = ? WHERE id = ?"
+  ).run(resolution, Date.now(), id);
+}
+
+export function createWorkflowCheckpoint(
+  checkpoint: Omit<WorkflowCheckpointRow, "id" | "createdAt">
+): string {
+  const db = getDb();
+  const id = crypto.randomUUID();
+  const createdAt = Date.now();
+  db.prepare(
+    `INSERT INTO workflow_checkpoints (
+      id, projectId, hypothesisId, experimentId, stage, status, payload, createdAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    checkpoint.projectId,
+    checkpoint.hypothesisId,
+    checkpoint.experimentId,
+    checkpoint.stage,
+    checkpoint.status,
+    checkpoint.payload ?? null,
+    createdAt
+  );
+  return id;
+}
+
+export function getWorkflowCheckpoints(
+  experimentId: string
+): WorkflowCheckpoint[] {
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT * FROM workflow_checkpoints WHERE experimentId = ? ORDER BY createdAt DESC")
+    .all(experimentId) as WorkflowCheckpointRow[];
+  return mapRows(rows) as WorkflowCheckpoint[];
+}
+
+export function getExperimentWorkspace(
+  hypothesisId: string
+): ExperimentWorkspace | undefined {
+  const hypothesis = getHypothesisById(hypothesisId);
+  if (!hypothesis) return undefined;
+
+  const experiment = hypothesis.currentExperimentId
+    ? getExperimentById(hypothesis.currentExperimentId)
+    : getLatestExperimentByHypothesis(hypothesisId);
+
+  const plan = getReproductionPlanByHypothesis(hypothesisId) ?? null;
+  const customContext = getCustomExperimentContextByHypothesis(hypothesisId) ?? null;
+  const blocker = getOpenExperimentBlocker(hypothesisId) ?? null;
+
+  if (!experiment) {
+    return {
+      hypothesis,
+      experiment: null,
+      plan,
+      customContext,
+      blocker,
+      findings: [],
+      logs: [],
+      artifacts: [],
+      executionJob: null,
+      checkpoints: [],
+    };
+  }
+
+  return {
+    hypothesis,
+    experiment,
+    plan,
+    customContext,
+    blocker,
+    findings: getExperimentFindings(experiment._id),
+    logs: getExperimentLogs(experiment._id),
+    artifacts: getExperimentArtifacts(experiment._id),
+    executionJob: getLatestExecutionJobByExperiment(experiment._id) ?? null,
+    checkpoints: getWorkflowCheckpoints(experiment._id),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1426,6 +2516,16 @@ export function updatePaperEnrichment(
     relevanceScore?: number | null;
     relevanceReason?: string | null;
     summaryStatus?: string | null;
+    paperType?: string | null;
+    supportabilityLabel?: string | null;
+    reproducibilityClass?: string | null;
+    supportabilityScore?: number | null;
+    supportabilityReason?: string | null;
+    officialRepoUrl?: string | null;
+    supplementaryUrls?: string | null;
+    pdfUrl?: string | null;
+    sourceDiscoveryStatus?: string | null;
+    supportabilityUpdatedAt?: number | null;
   }
 ): void {
   const db = getDb();
@@ -1434,13 +2534,33 @@ export function updatePaperEnrichment(
      SET aiSummary = COALESCE(?, aiSummary),
          relevanceScore = COALESCE(?, relevanceScore),
          relevanceReason = COALESCE(?, relevanceReason),
-         summaryStatus = COALESCE(?, summaryStatus)
+         summaryStatus = COALESCE(?, summaryStatus),
+         paperType = COALESCE(?, paperType),
+         supportabilityLabel = COALESCE(?, supportabilityLabel),
+         reproducibilityClass = COALESCE(?, reproducibilityClass),
+         supportabilityScore = COALESCE(?, supportabilityScore),
+         supportabilityReason = COALESCE(?, supportabilityReason),
+         officialRepoUrl = COALESCE(?, officialRepoUrl),
+         supplementaryUrls = COALESCE(?, supplementaryUrls),
+         pdfUrl = COALESCE(?, pdfUrl),
+         sourceDiscoveryStatus = COALESCE(?, sourceDiscoveryStatus),
+         supportabilityUpdatedAt = COALESCE(?, supportabilityUpdatedAt)
      WHERE id = ?`
   ).run(
     updates.aiSummary ?? null,
     updates.relevanceScore ?? null,
     updates.relevanceReason ?? null,
     updates.summaryStatus ?? null,
+    updates.paperType ?? null,
+    updates.supportabilityLabel ?? null,
+    updates.reproducibilityClass ?? null,
+    updates.supportabilityScore ?? null,
+    updates.supportabilityReason ?? null,
+    updates.officialRepoUrl ?? null,
+    updates.supplementaryUrls ?? null,
+    updates.pdfUrl ?? null,
+    updates.sourceDiscoveryStatus ?? null,
+    updates.supportabilityUpdatedAt ?? null,
     id
   );
 }

@@ -78,12 +78,18 @@ export async function POST(request: Request) {
       .replace("{nextLines}", nextLines || "")
       .replace("{lineNumber}", lineNumber.toString());
 
-    const result = await callClaude({
-      prompt,
-      model: "haiku",
-      maxTurns: 1,
-      allowedTools: [],
-    });
+    let result: string;
+    try {
+      result = await callClaude({
+        prompt,
+        model: "haiku",
+        maxTurns: 1,
+        allowedTools: [],
+      });
+    } catch (error) {
+      console.error("Suggestion backend error: ", error);
+      return NextResponse.json({ suggestion: "" });
+    }
 
     const suggestion = result.trim() === "EMPTY" ? "" : result.trim();
 

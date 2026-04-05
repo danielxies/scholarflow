@@ -43,6 +43,13 @@ async function dispatch(path: string, rawArgs: Args): Promise<unknown> {
     case "system.getConversationById":
       return dbOps.getConversationById(args.conversationId);
 
+    case "system.getConversationByContext":
+      return dbOps.getConversationByContext(
+        args.projectId,
+        args.contextType,
+        args.contextId
+      );
+
     case "system.getRecentMessages":
       return dbOps.getRecentMessages(args.conversationId, args.limit);
 
@@ -91,6 +98,13 @@ async function dispatch(path: string, rawArgs: Args): Promise<unknown> {
     case "system.updateConversationTitle":
       return dbOps.updateConversationTitle(args.conversationId, args.title);
 
+    case "system.createConversation":
+      return dbOps.createConversation(args.projectId, args.title, {
+        contextType: args.contextType,
+        contextId: args.contextId,
+        contextPayload: args.contextPayload,
+      });
+
     case "system.createProjectWithConversation":
       return dbOps.createProjectWithConversation(
         args.projectName,
@@ -123,6 +137,8 @@ async function dispatch(path: string, rawArgs: Args): Promise<unknown> {
       return dbOps.getExperiments(args.projectId);
     case "system.getExperimentsByHypothesis":
       return dbOps.getExperimentsByHypothesis(args.hypothesisId);
+    case "system.getExperimentWorkspace":
+      return dbOps.getExperimentWorkspace(args.hypothesisId);
     case "system.createExperiment":
       return dbOps.createExperiment(args.projectId, args.hypothesisId, args.name, args.protocol, args.skillsUsed, args.config);
     case "system.updateExperimentStatus":

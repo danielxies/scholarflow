@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { inngest } from "@/inngest/client";
 import * as dbOps from "@/lib/db";
 import { LITERATURE_EVENTS } from "@/features/literature/inngest/events";
+import { buildFallbackEnrichment } from "@/features/literature/lib/fallback-enrichment";
 
 const requestSchema = z.object({
   projectId: z.string().min(1),
@@ -81,17 +82,35 @@ export async function POST(request: Request) {
       );
     }
 
-    const shouldQueueEnrichment = ![
-      "pending",
-      "processing",
-      "completed",
-    ].includes(savedPaper.summaryStatus ?? "");
+    const hasSupportability =
+      Boolean(savedPaper.supportabilityLabel) &&
+      Boolean(savedPaper.reproducibilityClass);
+    const hasSummary = Boolean(savedPaper.aiSummary);
 
-    if (shouldQueueEnrichment || savedPaper.summaryStatus === "pending") {
+    if (!hasSummary || !hasSupportability) {
+      const fallback = buildFallbackEnrichment(savedPaper);
+
       dbOps.updatePaperEnrichment(paperId, {
-        summaryStatus: "pending",
+        aiSummary: fallback.summary,
+        summaryStatus: "completed",
+        paperType: fallback.paperType,
+        supportabilityLabel: fallback.supportabilityLabel,
+        reproducibilityClass: fallback.reproducibilityClass,
+        supportabilityScore: fallback.supportabilityScore,
+        supportabilityReason: fallback.supportabilityReason,
+        officialRepoUrl: fallback.officialRepoUrl,
+        supplementaryUrls: JSON.stringify([]),
+        pdfUrl: fallback.pdfUrl,
+        sourceDiscoveryStatus: "completed",
+        supportabilityUpdatedAt: Date.now(),
       });
+    }
 
+    if (
+      savedPaper.summaryStatus === "pending" ||
+      (!hasSummary || !hasSupportability) &&
+        savedPaper.summaryStatus !== "processing"
+    ) {
       await inngest.send({
         name: LITERATURE_EVENTS.ENRICH_PAPER,
         data: {

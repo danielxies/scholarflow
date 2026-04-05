@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocalQuery, useLocalMutation } from "@/lib/local-db/hooks";
-import type { Id, Experiment } from "@/lib/local-db/types";
+import type { Id, Experiment, ExperimentWorkspace } from "@/lib/local-db/types";
 
 export const useExperiments = (projectId: Id<"projects"> | null) => {
   return useLocalQuery<Experiment[]>(
@@ -13,6 +13,15 @@ export const useExperiments = (projectId: Id<"projects"> | null) => {
 export const useExperimentsByHypothesis = (hypothesisId: Id<"hypotheses"> | null) => {
   return useLocalQuery<Experiment[]>(
     "experiments.getByHypothesis",
+    hypothesisId ? { hypothesisId } : "skip"
+  );
+};
+
+export const useExperimentWorkspace = (
+  hypothesisId: Id<"hypotheses"> | null
+) => {
+  return useLocalQuery<ExperimentWorkspace>(
+    "experiments.getWorkspace",
     hypothesisId ? { hypothesisId } : "skip"
   );
 };

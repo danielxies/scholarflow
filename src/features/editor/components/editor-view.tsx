@@ -26,9 +26,17 @@ export const EditorView = ({ projectId }: { projectId: Id<"projects"> }) => {
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     };
   }, [activeTabId]);
+
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, [activeFile?._id, activeFile?.content]);
 
   return (
     <div className="h-full flex flex-col">
@@ -52,14 +60,15 @@ export const EditorView = ({ projectId }: { projectId: Id<"projects"> }) => {
           <CodeEditor
             key={activeFile._id}
             fileName={activeFile.name}
-            initialValue={activeFile.content}
+            value={activeFile.content}
             onChange={(content: string) => {
               if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
               }
 
               timeoutRef.current = setTimeout(() => {
-                updateFile({ id: activeFile._id, content });
+                timeoutRef.current = null;
+                void updateFile({ id: activeFile._id, content });
               }, DEBOUNCE_MS);
             }}
           />

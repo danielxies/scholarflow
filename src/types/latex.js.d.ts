@@ -7,6 +7,6 @@ declare module "latex.js" {
     latex: string,
     options?: { generator: HtmlGenerator }
   ): {
-    htmlDocument(): Document;
+    htmlDocument(baseUrl?: string): Document;
   };
 }

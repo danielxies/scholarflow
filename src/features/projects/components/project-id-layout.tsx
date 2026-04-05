@@ -7,7 +7,7 @@ import { ConversationSidebar } from "@/features/conversations/components/convers
 import { Navbar } from "./navbar";
 import { Id } from "@/lib/local-db/types";
 
-const MIN_SIDEBAR_WIDTH = 200;
+const MIN_SIDEBAR_WIDTH = 320;
 const MAX_SIDEBAR_WIDTH = 800;
 const DEFAULT_CONVERSATION_SIDEBAR_WIDTH = 400;
 const DEFAULT_MAIN_SIZE = 1000;
@@ -31,7 +31,6 @@ export const ProjectIdLayout = ({
           ]}
         >
           <Allotment.Pane
-            snap
             minSize={MIN_SIDEBAR_WIDTH}
             maxSize={MAX_SIDEBAR_WIDTH}
             preferredSize={DEFAULT_CONVERSATION_SIDEBAR_WIDTH}

@@ -1,165 +1,110 @@
 "use client";
 
-import { useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  FlaskConical,
-  MoreHorizontal,
-} from "lucide-react";
+import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import type { Hypothesis } from "@/lib/local-db/types";
 
-const STATUS_COLORS: Record<Hypothesis["status"], string> = {
-  proposed: "bg-gray-500/15 text-gray-600 dark:text-gray-400",
-  active: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  completed: "bg-green-500/15 text-green-600 dark:text-green-400",
-  failed: "bg-red-500/15 text-red-600 dark:text-red-400",
-  abandoned: "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400",
-};
+function formatNumber(value: number | null) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "—";
+  }
 
-const STATUS_TRANSITIONS: Record<Hypothesis["status"], Hypothesis["status"][]> = {
-  proposed: ["active", "abandoned"],
-  active: ["completed", "failed", "abandoned"],
-  completed: [],
-  failed: ["proposed"],
-  abandoned: ["proposed"],
-};
+  return value.toFixed(2);
+}
+
+function displayStatus(hypothesis: Hypothesis) {
+  return (hypothesis.workflowStatus ?? hypothesis.status).replace(/_/g, " ");
+}
 
 interface HypothesisCardProps {
   hypothesis: Hypothesis;
-  experimentCount: number;
-  onStatusChange: (id: string, status: Hypothesis["status"]) => void;
+  displayTitle?: string;
+  isSelected: boolean;
+  onSelect: (hypothesisId: Hypothesis["_id"]) => void;
+  onEdit?: (hypothesisId: Hypothesis["_id"]) => void;
 }
 
 export function HypothesisCard({
   hypothesis,
-  experimentCount,
-  onStatusChange,
+  displayTitle,
+  isSelected,
+  onSelect,
+  onEdit,
 }: HypothesisCardProps) {
-  const [expanded, setExpanded] = useState(false);
-  const transitions = STATUS_TRANSITIONS[hypothesis.status];
-
   return (
-    <Card className="gap-0 py-0 overflow-hidden">
-      <CardHeader className="p-3 pb-0">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-sm leading-snug line-clamp-2">
-            {hypothesis.title}
-          </CardTitle>
-          <div className="flex items-center gap-1 shrink-0">
-            {transitions.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon-xs">
-                    <MoreHorizontal className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {transitions.map((status) => (
-                    <DropdownMenuItem
-                      key={status}
-                      onClick={() => onStatusChange(hypothesis._id, status)}
-                    >
-                      <Badge
-                        className={cn(
-                          "border-none text-[10px] px-1.5 py-0",
-                          STATUS_COLORS[status]
-                        )}
-                      >
-                        {status}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground ml-1">
-                        Move to {status}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setExpanded(!expanded)}
-                  >
-                    {expanded ? "Collapse" : "Expand"} details
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(hypothesis._id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(hypothesis._id);
+        }
+      }}
+      className={cn(
+        "w-full min-w-0 rounded-lg border bg-card p-3 text-left transition-colors",
+        "hover:bg-accent/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        isSelected && "border-primary bg-accent/40"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">
+            {displayTitle ?? hypothesis.title}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Created {new Date(hypothesis.createdAt).toLocaleString()}
+          </p>
+          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+            {hypothesis.description}
+          </p>
         </div>
-      </CardHeader>
-      <CardContent className="p-3 pt-2">
-        <p className={cn("text-xs text-muted-foreground", !expanded && "line-clamp-2")}>
-          {hypothesis.description}
-        </p>
+        <div className="flex max-w-[10rem] shrink-0 flex-col items-end gap-1">
+          <Badge variant={hypothesis.kind === "reproduction" ? "default" : "outline"}>
+            {hypothesis.kind === "reproduction" ? "Reproduction" : "Custom"}
+          </Badge>
+          <Badge variant="secondary">{displayStatus(hypothesis)}</Badge>
+        </div>
+      </div>
 
-        <div className="flex items-center gap-2 mt-2">
-          <Badge
-            className={cn(
-              "border-none text-[10px] px-1.5 py-0",
-              STATUS_COLORS[hypothesis.status]
-            )}
+      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+        {hypothesis.targetMetric ? (
+          <span className="break-words">Target: {hypothesis.targetMetric}</span>
+        ) : null}
+        {hypothesis.targetValue !== null ? (
+          <span>Goal {formatNumber(hypothesis.targetValue)}</span>
+        ) : null}
+        {hypothesis.bestValue !== null ? (
+          <span>Best {formatNumber(hypothesis.bestValue)}</span>
+        ) : null}
+        {hypothesis.gap !== null ? (
+          <span>Gap {formatNumber(hypothesis.gap)}</span>
+        ) : null}
+        {hypothesis.supportabilityLabel ? (
+          <span>{hypothesis.supportabilityLabel.replace(/_/g, " ")}</span>
+        ) : null}
+      </div>
+
+      {hypothesis.kind === "custom" && onEdit ? (
+        <div className="mt-3 flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-[11px]"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit(hypothesis._id);
+            }}
           >
-            {hypothesis.status}
-          </Badge>
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1">
-            <FlaskConical className="size-2.5" />
-            {experimentCount}
-          </Badge>
+            <Pencil className="size-3.5" />
+            Edit
+          </Button>
         </div>
-
-        {expanded && (
-          <div className="mt-3 space-y-2 border-t pt-2">
-            <div>
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                Rationale
-              </p>
-              <p className="text-xs mt-0.5">{hypothesis.rationale}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                Expected Outcome
-              </p>
-              <p className="text-xs mt-0.5">{hypothesis.expectedOutcome}</p>
-            </div>
-            {hypothesis.actualOutcome && (
-              <div>
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Actual Outcome
-                </p>
-                <p className="text-xs mt-0.5">{hypothesis.actualOutcome}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <Button
-          variant="ghost"
-          size="xs"
-          className="w-full mt-2 text-muted-foreground"
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? (
-            <ChevronUp className="size-3" />
-          ) : (
-            <ChevronDown className="size-3" />
-          )}
-          {expanded ? "Less" : "More"}
-        </Button>
-      </CardContent>
-    </Card>
+      ) : null}
+    </div>
   );
 }

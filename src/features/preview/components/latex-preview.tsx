@@ -38,9 +38,19 @@ function preprocessLatex(source: string): string {
 export const LaTeXPreview = ({ projectId }: { projectId: Id<"projects"> }) => {
   const files = useFiles(projectId);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeUrlRef = useRef<string | null>(null);
   const [isCompiling, setIsCompiling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasCompiled, setHasCompiled] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (iframeUrlRef.current) {
+        URL.revokeObjectURL(iframeUrlRef.current);
+        iframeUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const compile = useCallback(async () => {
     if (!files) return;
@@ -72,7 +82,8 @@ export const LaTeXPreview = ({ projectId }: { projectId: Id<"projects"> }) => {
       });
 
       const doc = parse(cleanedSource, { generator });
-      const htmlDoc = doc.htmlDocument();
+      const assetBaseUrl = new URL("/latexjs/", window.location.origin).toString();
+      const htmlDoc = doc.htmlDocument(assetBaseUrl);
 
       // Inject custom styles for academic paper look
       const style = htmlDoc.createElement("style");
@@ -115,8 +126,12 @@ export const LaTeXPreview = ({ projectId }: { projectId: Id<"projects"> }) => {
       const htmlString = serializer.serializeToString(htmlDoc);
 
       if (iframeRef.current) {
+        if (iframeUrlRef.current) {
+          URL.revokeObjectURL(iframeUrlRef.current);
+        }
         const blob = new Blob([htmlString], { type: "text/html" });
         const url = URL.createObjectURL(blob);
+        iframeUrlRef.current = url;
         iframeRef.current.src = url;
       }
 

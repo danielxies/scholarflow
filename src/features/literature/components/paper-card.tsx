@@ -32,15 +32,20 @@ interface PaperCardProps {
   provider?: string | null;
   publicationType?: string | null;
   primaryTopic?: string | null;
+  supportabilityLabel?: string | null;
+  reproducibilityClass?: string | null;
+  officialRepoUrl?: string | null;
   relevanceScore?: number | null;
   relevanceReason?: string | null;
   relevanceStatus?: "idle" | "scoring" | "scored" | "failed";
   isAdding?: boolean;
   onAdd?: () => void;
   onRemove?: () => void;
+  onReproduce?: () => void;
   onClick?: () => void;
   className?: string;
   showRelevance?: boolean;
+  showReproduce?: boolean;
 }
 
 export function PaperCard({
@@ -55,15 +60,20 @@ export function PaperCard({
   isInLibrary,
   publicationType,
   primaryTopic,
+  supportabilityLabel,
+  reproducibilityClass,
+  officialRepoUrl,
   relevanceScore,
   relevanceReason,
   relevanceStatus = "idle",
   isAdding = false,
   onAdd,
   onRemove,
+  onReproduce,
   onClick,
   className,
   showRelevance = false,
+  showReproduce = false,
 }: PaperCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -91,6 +101,7 @@ export function PaperCard({
   const showRelevanceFailure = showRelevance && relevanceStatus === "failed";
   const hasRelevanceScore =
     showRelevance && typeof relevanceScore === "number";
+  const canOpenReproduce = Boolean(onReproduce) && !showScoring;
 
   return (
     <div
@@ -181,6 +192,21 @@ export function PaperCard({
             {primaryTopic}
           </Badge>
         )}
+        {supportabilityLabel && (
+          <Badge variant="secondary" className="text-[10px]">
+            {supportabilityLabel.replace(/_/g, " ")}
+          </Badge>
+        )}
+        {reproducibilityClass && (
+          <Badge variant="outline" className="text-[10px]">
+            {reproducibilityClass.replace(/_/g, " ")}
+          </Badge>
+        )}
+        {officialRepoUrl && (
+          <Badge variant="outline" className="text-[10px]">
+            official repo
+          </Badge>
+        )}
         {hasRelevanceScore && (
           <Badge className="gap-1 text-[10px]">
             <Sparkles className="size-2.5" />
@@ -225,6 +251,19 @@ export function PaperCard({
           </p>
         ) : null}
       </div>
+
+      {isInLibrary && showReproduce && (
+        <div className="mt-3 flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="xs"
+            disabled={!canOpenReproduce}
+            onClick={onReproduce}
+          >
+            Reproduce
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

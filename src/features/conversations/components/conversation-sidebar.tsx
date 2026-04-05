@@ -25,6 +25,7 @@ import {
   useCreateConversation,
   useMessages,
 } from "../hooks/use-conversations";
+import { useConversationStore } from "../store/use-conversation-store";
 
 import { Id } from "@/lib/local-db/types";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
@@ -39,16 +40,18 @@ export const ConversationSidebar = ({
 }: ConversationSidebarProps) => {
   const [input, setInput] = useState("");
   const [
-    selectedConversationId,
-    setSelectedConversationId,
-  ] = useState<Id<"conversations"> | null>(null);
-  const [
     pastConversationsOpen,
     setPastConversationsOpen
   ] = useState(false);
 
   const createConversation = useCreateConversation();
   const conversations = useConversations(projectId);
+  const selectedConversationId = useConversationStore((state) =>
+    state.getSelectedConversationId(projectId)
+  );
+  const setSelectedConversationId = useConversationStore(
+    (state) => state.setSelectedConversationId
+  );
 
   const activeConversationId =
     selectedConversationId ?? conversations?.[0]?._id ?? null;
@@ -76,7 +79,7 @@ export const ConversationSidebar = ({
         projectId,
         title: DEFAULT_CONVERSATION_TITLE,
       });
-      setSelectedConversationId(newConversationId);
+      setSelectedConversationId(projectId, newConversationId as Id<"conversations">);
       return newConversationId;
     } catch {
       toast.error("Unable to create new conversation");
@@ -121,7 +124,9 @@ export const ConversationSidebar = ({
         projectId={projectId}
         open={pastConversationsOpen}
         onOpenChange={setPastConversationsOpen}
-        onSelect={setSelectedConversationId}
+        onSelect={(conversationId) =>
+          setSelectedConversationId(projectId, conversationId)
+        }
       />
       <div className="flex flex-col h-full bg-background">
         {/* Header */}
@@ -178,7 +183,7 @@ export const ConversationSidebar = ({
                       <div className="flex flex-col gap-2">
                         {/* Response label */}
                         <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-secondary">
-                          // Response
+                          Response
                         </span>
                         {/* Response body */}
                         <div className="rounded-md border border-border/50 bg-card p-3.5 text-[13px] leading-relaxed font-mono text-foreground whitespace-pre-wrap break-words">

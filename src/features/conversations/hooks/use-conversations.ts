@@ -18,6 +18,32 @@ export const useConversations = (projectId: Id<"projects">) => {
   return useLocalQuery<Conversation[]>("conversations.getByProject", { projectId });
 };
 
+export const useConversationByContext = (
+  projectId: Id<"projects"> | null,
+  contextType: Conversation["contextType"] | null,
+  contextId: string | null
+) => {
+  return useLocalQuery<Conversation>(
+    "conversations.getByContext",
+    projectId && contextType && contextId
+      ? {
+          projectId,
+          contextType,
+          contextId,
+        }
+      : "skip"
+  );
+};
+
 export const useCreateConversation = () => {
-  return useLocalMutation<{ projectId: string; title: string }, string>("conversations.create");
+  return useLocalMutation<
+    {
+      projectId: string;
+      title: string;
+      contextType?: Conversation["contextType"] | null;
+      contextId?: string | null;
+      contextPayload?: string | null;
+    },
+    string
+  >("conversations.create");
 };

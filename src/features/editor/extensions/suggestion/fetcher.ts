@@ -1,6 +1,5 @@
 import ky from "ky";
 import { z } from "zod";
-import { toast } from "sonner";
 
 const suggestionRequestSchema = z.object({
   fileName: z.string(),
@@ -43,7 +42,6 @@ export const fetcher = async (
     if (error instanceof Error && error.name === "AbortError") {
       return null;
     }
-    toast.error("Failed to fetch AI completion");
     return null;
   }
 };

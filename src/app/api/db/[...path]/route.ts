@@ -22,6 +22,7 @@ import {
   // Conversations
   getConversationsByProject,
   getConversationById,
+  getConversationByContext,
   createConversation,
   updateConversationTitle,
   // Messages
@@ -44,6 +45,7 @@ import {
   // Research: Experiments
   getExperiments,
   getExperimentsByHypothesis,
+  getExperimentWorkspace,
   createExperiment,
   updateExperimentStatus,
   updateExperimentResults,
@@ -101,6 +103,13 @@ const queryHandlers: Record<string, HandlerFn> = {
   "conversations.getById": (args) =>
     getConversationById(args.id as string),
 
+  "conversations.getByContext": (args) =>
+    getConversationByContext(
+      args.projectId as string,
+      args.contextType as string,
+      args.contextId as string
+    ),
+
   "conversations.getMessages": (args) =>
     getMessages(args.conversationId as string),
 
@@ -124,6 +133,8 @@ const queryHandlers: Record<string, HandlerFn> = {
     getExperiments(args.projectId as string),
   "experiments.getByHypothesis": (args) =>
     getExperimentsByHypothesis(args.hypothesisId as string),
+  "experiments.getWorkspace": (args) =>
+    getExperimentWorkspace(args.hypothesisId as string),
   "researchState.get": (args) =>
     getResearchState(args.projectId as string),
   "researchLog.get": (args) =>
@@ -184,7 +195,12 @@ const mutationHandlers: Record<string, HandlerFn> = {
   "conversations.create": (args) =>
     createConversation(
       args.projectId as string,
-      args.title as string
+      args.title as string,
+      {
+        contextType: (args.contextType as string | undefined) ?? null,
+        contextId: (args.contextId as string | undefined) ?? null,
+        contextPayload: (args.contextPayload as string | undefined) ?? null,
+      }
     ),
 
   "conversations.updateTitle": (args) =>
