@@ -316,8 +316,8 @@ export function HypothesisCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent className="grid h-[90vh] max-h-[90vh] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
           <DialogTitle>
             {mode === "edit" ? "Edit Experiment" : "New Experiment"}
           </DialogTitle>
@@ -327,9 +327,13 @@ export function HypothesisCreateDialog({
               : "Describe the experiment in natural language and the system will plan and run it on the shared Modal pipeline."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="space-y-5 px-6 pt-2 pb-6">
+        <form
+          onSubmit={handleSubmit}
+          className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] overflow-hidden"
+        >
+          <div className="min-h-0 overflow-hidden">
+            <ScrollArea className="h-full min-h-0">
+              <div className="space-y-5 px-6 pt-2 pb-6">
               {runnerCapability?.available === false ? (
                 <Alert variant="destructive">
                   <TriangleAlert className="size-4" />
@@ -406,10 +410,10 @@ export function HypothesisCreateDialog({
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="experiment-dataset">Dataset / credentials note</Label>
+                  <Label htmlFor="experiment-dataset">Dataset / access note</Label>
                   <Textarea
                     id="experiment-dataset"
-                    placeholder="Optional dataset path, gated access note, or credential requirements."
+                    placeholder="Optional dataset path, gated access note, credentials, or data split details. Do not put install commands here."
                     value={datasetNote}
                     onChange={(e) => setDatasetNote(e.target.value)}
                     rows={3}
@@ -498,8 +502,9 @@ export function HypothesisCreateDialog({
                   </div>
                 </div>
               </div>
-            </div>
-          </ScrollArea>
+              </div>
+            </ScrollArea>
+          </div>
 
           <DialogFooter className="border-t px-6 py-4">
             <Button

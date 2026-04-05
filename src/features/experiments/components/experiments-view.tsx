@@ -27,6 +27,7 @@ import {
   useExperimentWorkspace,
 } from "../hooks/use-experiments";
 import { ExperimentProgressPanel } from "./experiment-progress-panel";
+import { ExperimentReportDialog } from "./experiment-report-dialog";
 import { FindingsPanel } from "./findings-panel";
 import { HypothesisBoard } from "./hypothesis-board";
 import { HypothesisCreateDialog } from "./hypothesis-create-dialog";
@@ -141,6 +142,165 @@ function buildBlockerSeedMessage(params: {
   return lines.join("\n");
 }
 
+function parseArtifactMetadata<T>(metadata: string | null | undefined): T | null {
+  if (!metadata) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(metadata) as T;
+  } catch {
+    return null;
+  }
+}
+
+interface FlatReportArtifactPayload {
+  summary: string | null;
+  generatedAt: number | null;
+  reportMarkdown: string;
+  verdict: string | null;
+  workflowStatus: string | null;
+  targetMetric: string | null;
+  targetValue: number | null;
+  bestValue: number | null;
+  gap: number | null;
+  tolerance: number | null;
+}
+
+interface LegacyReportArtifactPayload {
+  hypothesis?: {
+    title?: string | null;
+    verdict?: string | null;
+    workflowStatus?: string | null;
+    targetMetric?: string | null;
+    targetValue?: number | null;
+    bestValue?: number | null;
+    gap?: number | null;
+    tolerance?: number | null;
+  } | null;
+  plan?: {
+    targetMetric?: string | null;
+    targetValue?: number | null;
+    tolerance?: number | null;
+  } | null;
+}
+
+interface NormalizedReportPayload {
+  summary: string | null;
+  generatedAt: number | null;
+  reportMarkdown: string | null;
+  reportTitle: string | null;
+  verdict: string | null;
+  workflowStatus: string | null;
+  targetMetric: string | null;
+  targetValue: number | null;
+  bestValue: number | null;
+  gap: number | null;
+  tolerance: number | null;
+}
+
+function extractReportSummary(markdown: string | null | undefined) {
+  if (!markdown) {
+    return null;
+  }
+
+  const paragraph = markdown
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .find(
+      (part) =>
+        part.length > 0 &&
+        !part.startsWith("#") &&
+        !part.startsWith("- ") &&
+        !part.startsWith("* ") &&
+        !/^\d+\.\s+/.test(part)
+    );
+
+  return paragraph ? paragraph.replace(/\s+/g, " ").trim() : null;
+}
+
+function normalizeReportPayload(params: {
+  workspace: ExperimentWorkspace | undefined;
+  reportMarkdown: string | null;
+  reportJsonMetadata: string | null | undefined;
+  reportCreatedAt: number | null;
+}) {
+  const flatPayload = parseArtifactMetadata<FlatReportArtifactPayload>(
+    params.reportJsonMetadata
+  );
+  const legacyPayload = parseArtifactMetadata<LegacyReportArtifactPayload>(
+    params.reportJsonMetadata
+  );
+  const workspace = params.workspace;
+  const hypothesis = workspace?.hypothesis;
+  const plan = workspace?.plan;
+
+  const isFlatPayload =
+    flatPayload &&
+    ("reportMarkdown" in flatPayload ||
+      "summary" in flatPayload ||
+      "targetMetric" in flatPayload);
+
+  const reportMarkdown =
+    params.reportMarkdown ??
+    (isFlatPayload ? flatPayload?.reportMarkdown ?? null : null);
+
+  return {
+    summary:
+      (isFlatPayload ? flatPayload?.summary ?? null : null) ??
+      extractReportSummary(reportMarkdown),
+    generatedAt:
+      (isFlatPayload ? flatPayload?.generatedAt ?? null : null) ??
+      params.reportCreatedAt,
+    reportMarkdown,
+    reportTitle:
+      (isFlatPayload ? null : legacyPayload?.hypothesis?.title ?? null) ??
+      hypothesis?.title ??
+      null,
+    verdict:
+      (isFlatPayload ? flatPayload?.verdict ?? null : null) ??
+      legacyPayload?.hypothesis?.verdict ??
+      hypothesis?.verdict ??
+      null,
+    workflowStatus:
+      (isFlatPayload ? flatPayload?.workflowStatus ?? null : null) ??
+      legacyPayload?.hypothesis?.workflowStatus ??
+      hypothesis?.workflowStatus ??
+      null,
+    targetMetric:
+      (isFlatPayload ? flatPayload?.targetMetric ?? null : null) ??
+      legacyPayload?.hypothesis?.targetMetric ??
+      legacyPayload?.plan?.targetMetric ??
+      hypothesis?.targetMetric ??
+      plan?.targetMetric ??
+      null,
+    targetValue:
+      (isFlatPayload ? flatPayload?.targetValue ?? null : null) ??
+      legacyPayload?.hypothesis?.targetValue ??
+      legacyPayload?.plan?.targetValue ??
+      hypothesis?.targetValue ??
+      plan?.targetValue ??
+      null,
+    bestValue:
+      (isFlatPayload ? flatPayload?.bestValue ?? null : null) ??
+      legacyPayload?.hypothesis?.bestValue ??
+      hypothesis?.bestValue ??
+      null,
+    gap:
+      (isFlatPayload ? flatPayload?.gap ?? null : null) ??
+      legacyPayload?.hypothesis?.gap ??
+      hypothesis?.gap ??
+      null,
+    tolerance:
+      (isFlatPayload ? flatPayload?.tolerance ?? null : null) ??
+      legacyPayload?.hypothesis?.tolerance ??
+      legacyPayload?.plan?.tolerance ??
+      hypothesis?.tolerance ??
+      plan?.tolerance ??
+      null,
+  } satisfies NormalizedReportPayload;
+}
+
 export function ExperimentsView({ projectId, isActive }: ExperimentsViewProps) {
   const hypotheses = useHypotheses(isActive ? projectId : null);
   const experiments = useExperiments(isActive ? projectId : null);
@@ -160,6 +320,7 @@ export function ExperimentsView({ projectId, isActive }: ExperimentsViewProps) {
   const [editingWorkspaceSnapshot, setEditingWorkspaceSnapshot] =
     useState<ExperimentWorkspace | undefined>(undefined);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [manualSelectedHypothesisId, setManualSelectedHypothesisId] =
     useState<Id<"hypotheses"> | null>(null);
   const selectedHypothesisId = useMemo(() => {
@@ -245,6 +406,36 @@ export function ExperimentsView({ projectId, isActive }: ExperimentsViewProps) {
     editingWorkspace,
     editingWorkspaceSnapshot,
   ]);
+
+  useEffect(() => {
+    setReportDialogOpen(false);
+  }, [workspace?.experiment?._id]);
+
+  const reportMarkdownArtifact = useMemo(
+    () => workspace?.artifacts.find((artifact) => artifact.type === "report_markdown") ?? null,
+    [workspace?.artifacts]
+  );
+  const reportJsonArtifact = useMemo(
+    () => workspace?.artifacts.find((artifact) => artifact.type === "report_json") ?? null,
+    [workspace?.artifacts]
+  );
+  const reportPayload = useMemo(
+    () =>
+      normalizeReportPayload({
+        workspace,
+        reportMarkdown: reportMarkdownArtifact?.metadata ?? null,
+        reportJsonMetadata: reportJsonArtifact?.metadata,
+        reportCreatedAt: reportJsonArtifact?.createdAt ?? reportMarkdownArtifact?.createdAt ?? null,
+      }),
+    [
+      reportJsonArtifact?.metadata,
+      reportJsonArtifact?.createdAt,
+      reportMarkdownArtifact?.metadata,
+      reportMarkdownArtifact?.createdAt,
+      workspace,
+    ]
+  );
+  const reportMarkdown = reportPayload.reportMarkdown;
 
   const handleUnblock = async () => {
     if (!workspace?.blocker || !workspace.experiment) return;
@@ -436,7 +627,27 @@ export function ExperimentsView({ projectId, isActive }: ExperimentsViewProps) {
             ) : null}
           </div>
           <div className="min-h-0 flex-1">
-            <FindingsPanel findings={workspace?.findings ?? []} />
+            <FindingsPanel
+              findings={workspace?.findings ?? []}
+              report={
+                reportMarkdown
+                  ? {
+                      title: reportPayload.verdict
+                        ? `${selectedDisplayTitle ?? reportPayload.reportTitle ?? workspace?.hypothesis.title ?? "Experiment"}: ${reportPayload.verdict}`
+                        : `${selectedDisplayTitle ?? reportPayload.reportTitle ?? workspace?.hypothesis.title ?? "Experiment"} Report`,
+                      summary: reportPayload.summary ?? null,
+                      generatedAt: reportPayload.generatedAt ?? null,
+                      workflowStatus:
+                        reportPayload.workflowStatus ??
+                        workspace?.hypothesis.workflowStatus ??
+                        null,
+                    }
+                  : null
+              }
+              onOpenReport={
+                reportMarkdown ? () => setReportDialogOpen(true) : undefined
+              }
+            />
           </div>
         </div>
       </div>
@@ -476,6 +687,18 @@ export function ExperimentsView({ projectId, isActive }: ExperimentsViewProps) {
         mode="edit"
         editHypothesisId={editingHypothesisId}
         initialWorkspace={editingWorkspaceSnapshot}
+      />
+      <ExperimentReportDialog
+        open={reportDialogOpen}
+        onOpenChange={setReportDialogOpen}
+        displayTitle={
+          selectedDisplayTitle ??
+          reportPayload.reportTitle ??
+          workspace?.hypothesis.title ??
+          "Experiment"
+        }
+        reportMarkdown={reportMarkdown}
+        reportPayload={reportPayload}
       />
     </div>
   );

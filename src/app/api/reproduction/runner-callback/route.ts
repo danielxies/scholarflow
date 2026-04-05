@@ -52,6 +52,7 @@ const callbackSchema = z.discriminatedUnion("type", [
   }),
   baseCallbackSchema.extend({
     type: z.literal("job_failed"),
+    failureClass: z.string().nullable().optional(),
     error: z.string().min(1),
     resultSummary: z.string().nullable().optional(),
   }),
@@ -230,7 +231,10 @@ export async function POST(request: Request) {
           phase: "monitor_runner_job",
           message: payload.error,
           workflowStatus: hypothesis.kind === "custom" ? "failed" : undefined,
-          payload: payload.resultSummary ?? null,
+          payload: {
+            failureClass: payload.failureClass ?? "runtime_failed",
+            resultSummary: payload.resultSummary ?? null,
+          },
         });
         break;
       }
