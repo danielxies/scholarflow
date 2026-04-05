@@ -36,6 +36,8 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
   const executeStep = async () => {
     if (!step) return;
 
+    const stepIndex = useDemoStore.getState().currentStep;
+
     // Switch tab if needed
     if (step.tab && setActiveView) {
       setActiveView(step.tab);
@@ -48,20 +50,17 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
         await ky.post("/api/messages", {
           json: { conversationId, message: step.message },
         });
-        toast.success(`Step ${currentStep + 1}: ${step.label}`);
       } catch {
         toast.error("Failed to send message");
       } finally {
         setSending(false);
       }
-    } else if (!step.message) {
-      toast.success(`Step ${currentStep + 1}: ${step.label}`);
     }
 
-    setCompletedSteps((prev) => new Set([...prev, currentStep]));
+    setCompletedSteps((prev) => new Set([...prev, stepIndex]));
 
     // Auto-advance to next step
-    if (currentStep < DEMO_STEPS.length - 1) {
+    if (stepIndex < DEMO_STEPS.length - 1) {
       nextStep();
     }
   };
@@ -75,7 +74,7 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
     return (
       <button
         onClick={start}
-        className="fixed top-2 right-4 z-50 flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground shadow-lg hover:opacity-90 transition-opacity"
+        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground shadow-lg hover:opacity-90 transition-opacity"
       >
         <MonitorPlayIcon className="size-4" />
         Demo Mode
@@ -84,7 +83,7 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
   }
 
   return (
-    <div className="fixed top-2 right-4 z-50 w-80 rounded-lg border bg-card shadow-2xl overflow-hidden">
+    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-lg border bg-card shadow-2xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b bg-secondary/30">
         <span className="text-xs font-mono font-medium uppercase tracking-wider text-secondary">
@@ -118,7 +117,7 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
             className={cn(
               "flex items-center gap-2 py-1 text-xs rounded px-1.5",
               i === currentStep && "bg-accent font-medium",
-              i < currentStep && completedSteps.has(i) && "text-muted-foreground"
+              completedSteps.has(i) && i !== currentStep && "text-muted-foreground"
             )}
           >
             {completedSteps.has(i) ? (
