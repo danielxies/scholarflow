@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { CloudCheckIcon } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
 import { formatDistanceToNow } from "date-fns";
 
 import {
@@ -129,9 +128,7 @@ export const Navbar = ({
           </TooltipContent>
         </Tooltip>
       </div>
-      <div className="flex items-center gap-2">
-        <UserButton />
-      </div>
+      <div className="flex items-center gap-2" />
     </nav>
   )
 };

@@ -1,11 +1,11 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 import { NextResponse } from "next/server";
 
 import { OpenAlexError, searchWorks } from "@/lib/openalex";
 
 export async function GET(request: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
 
     if (!userId) {
       return NextResponse.json(

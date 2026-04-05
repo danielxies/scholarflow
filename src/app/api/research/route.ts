@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 import { inngest } from "@/inngest/client";
 import * as dbOps from "@/lib/db";
 import { RESEARCH_EVENTS } from "@/features/research/inngest/events";
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getSessionUserId();
 
   const body = await request.json();
   const { action, projectId, researchQuestion, direction, reason } = body;

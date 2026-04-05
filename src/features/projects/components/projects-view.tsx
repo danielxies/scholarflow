@@ -2,7 +2,6 @@
 
 import { SparkleIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 
@@ -46,7 +45,7 @@ export const ProjectsView = () => {
         <div className="w-full max-w-sm mx-auto flex flex-col gap-4 items-center">
 
           <div className="flex justify-between gap-4 w-full items-center">
-            <div className="flex items-center gap-2 w-full group/logo">
+            <div className="flex items-center gap-2 group/logo">
               <img src="/logo.svg" alt="ScholarFlow" className="size-[32px] md:size-[46px]" />
               <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
                 ScholarFlow

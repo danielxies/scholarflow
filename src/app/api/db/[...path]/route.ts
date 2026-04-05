@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 import {
   // Projects
   getProjects,
@@ -309,11 +309,8 @@ const mutationHandlers: Record<string, HandlerFn> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
 
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     const body = await req.json();
     const { operation, path, args = {} } = body as {

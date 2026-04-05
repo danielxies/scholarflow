@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 import {
   adjectives,
   animals,
@@ -127,11 +127,8 @@ function buildNotes(idea: string, template: TemplateName): string {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const body = await request.json();
   const parsed = requestSchema.parse(body);

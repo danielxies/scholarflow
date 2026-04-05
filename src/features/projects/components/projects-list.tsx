@@ -36,14 +36,14 @@ const ContinueCard = ({
         className="h-auto items-start justify-start p-4 bg-background border rounded-none flex flex-col gap-2"
       >
         <Link href={`/projects/${data._id}`} className="group">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <FileTextIcon className="size-3.5 text-muted-foreground" />
+          <div className="flex items-center justify-between w-full min-w-0 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileTextIcon className="size-3.5 text-muted-foreground shrink-0" />
               <span className="font-medium truncate">
                 {data.name}
               </span>
             </div>
-            <ArrowRightIcon className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+            <ArrowRightIcon className="size-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
           </div>
           <span className="text-xs text-muted-foreground">
             {formatTimestamp(data.updatedAt)}
@@ -64,8 +64,8 @@ const ProjectItem = ({
       href={`/projects/${data._id}`}
       className="text-sm text-foreground/60 font-medium hover:text-foreground py-1 flex items-center justify-between w-full group"
     >
-      <div className="flex items-center gap-2">
-        <FileTextIcon className="size-3.5 text-muted-foreground" />
+      <div className="flex items-center gap-2 min-w-0">
+        <FileTextIcon className="size-3.5 text-muted-foreground shrink-0" />
         <span className="truncate">{data.name}</span>
       </div>
       <span className="text-xs text-muted-foreground group-hover:text-foreground/60 transition-colors">

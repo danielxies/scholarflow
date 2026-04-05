@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 import { NextResponse } from "next/server";
 
 import { inngest } from "@/inngest/client";
@@ -65,22 +65,16 @@ function ensureProjectAccess(projectId: string, userId: string) {
 }
 
 export async function GET() {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   return NextResponse.json(getRunnerCapability());
 }
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
 
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     const body = await request.json();
     const payload = requestSchema.parse(body);

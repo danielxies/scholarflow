@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 import { NextResponse } from "next/server";
 
 import { callClaude } from "@/lib/claude-client";
@@ -41,7 +41,7 @@ Return ONLY the suggestion text or EMPTY. Nothing else.
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
 
     if (!userId) {
       return NextResponse.json(

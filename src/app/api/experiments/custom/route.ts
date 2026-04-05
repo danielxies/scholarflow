@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 import { NextResponse } from "next/server";
 
 import { inngest } from "@/inngest/client";
@@ -134,10 +134,7 @@ function buildCustomExperimentCopy(experiment: {
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const userId = await getSessionUserId();
 
     const payload = requestSchema.parse(await request.json());
 

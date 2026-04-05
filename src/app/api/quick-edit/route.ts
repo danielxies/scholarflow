@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 
 import { callClaude } from "@/lib/claude-client";
 
@@ -29,7 +29,7 @@ Return ONLY the edited text. No markdown code blocks, no explanations.
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const userId = await getSessionUserId();
     const { selectedCode, fullCode, instruction } = await request.json();
 
     if (!userId) {

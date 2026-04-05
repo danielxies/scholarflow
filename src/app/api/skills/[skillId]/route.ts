@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { getSessionUserId } from "@/lib/session";
 
 import { getSkillContent } from "@/lib/skills-loader";
 
@@ -7,11 +7,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ skillId: string }> }
 ) {
-  const { userId } = await auth();
+  const userId = await getSessionUserId();
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   const { skillId } = await params;
   const skill = getSkillContent(skillId);

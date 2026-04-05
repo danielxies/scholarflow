@@ -45,11 +45,16 @@ export const ProjectIdView = ({
 }: {
   projectId: Id<"projects">
 }) => {
-  const [activeView, setActiveView] = useState<ProjectView>("editor");
+  const [activeView, setActiveView] = useState<ProjectView>("preview");
 
   return (
     <div className="h-full flex flex-col">
       <nav className="h-8.75 flex items-center bg-sidebar border-b">
+        <Tab
+          label="PDF Preview"
+          isActive={activeView === "preview"}
+          onClick={() => setActiveView("preview")}
+        />
         <Tab
           label="Editor"
           isActive={activeView === "editor"}
@@ -64,11 +69,6 @@ export const ProjectIdView = ({
           label="Experiments"
           isActive={activeView === "experiments"}
           onClick={() => setActiveView("experiments")}
-        />
-        <Tab
-          label="PDF Preview"
-          isActive={activeView === "preview"}
-          onClick={() => setActiveView("preview")}
         />
       </nav>
       <div className="flex-1 relative">
