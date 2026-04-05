@@ -70,7 +70,7 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
     return (
       <button
         onClick={start}
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground shadow-lg hover:opacity-90 transition-opacity"
+        className="fixed top-2 right-4 z-50 flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground shadow-lg hover:opacity-90 transition-opacity"
       >
         <MonitorPlayIcon className="size-4" />
         Demo Mode
@@ -79,7 +79,7 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-lg border bg-card shadow-2xl overflow-hidden">
+    <div className="fixed top-2 right-4 z-50 w-80 rounded-lg border bg-card shadow-2xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b bg-secondary/30">
         <span className="text-xs font-mono font-medium uppercase tracking-wider text-secondary">

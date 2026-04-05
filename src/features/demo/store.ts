@@ -75,7 +75,7 @@ interface DemoState {
 }
 
 export const useDemoStore = create<DemoState>((set) => ({
-  active: false,
+  active: true,
   currentStep: 0,
   setActiveView: null,
   start: () => set({ active: true, currentStep: 0 }),
