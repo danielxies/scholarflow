@@ -32,6 +32,7 @@ import { useConversationStore } from "../store/use-conversation-store";
 import { Id } from "@/lib/local-db/types";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { PastConversationsDialog } from "./past-conversations-dialog";
+import { ToolCallBlock, stripToolCallArtifacts, parseToolCalls } from "./tool-call-block";
 
 const MarkdownResponse = memo(
   ({ children }: { children: string }) => (
@@ -239,8 +240,13 @@ export const ConversationSidebar = ({
                         <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-secondary">
                           Response
                         </span>
+                        {parseToolCalls(message.content).length > 0 && (
+                          <ToolCallBlock content={message.content} />
+                        )}
                         <div className="rounded-md border border-border/50 bg-card p-3.5 text-[13px] leading-relaxed text-foreground break-words">
-                          <MarkdownResponse>{message.content}</MarkdownResponse>
+                          <MarkdownResponse>
+                            {stripToolCallArtifacts(message.content)}
+                          </MarkdownResponse>
                         </div>
                         {messageIndex === (conversationMessages?.length ?? 0) - 1 && (
                           <div className="flex items-center gap-2">
@@ -248,7 +254,9 @@ export const ConversationSidebar = ({
                               size="xs"
                               variant="outline"
                               className="text-[11px] gap-1"
-                              onClick={() => navigator.clipboard.writeText(message.content)}
+                              onClick={() => navigator.clipboard.writeText(
+                                stripToolCallArtifacts(message.content)
+                              )}
                             >
                               <CopyIcon className="size-3" />
                               Copy
@@ -270,9 +278,14 @@ export const ConversationSidebar = ({
                     <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-secondary">
                       Response
                     </span>
+                    {streamingText && parseToolCalls(streamingText).length > 0 && (
+                      <ToolCallBlock content={streamingText} />
+                    )}
                     <div className="rounded-md border border-border/50 bg-card p-3.5 text-[13px] leading-relaxed text-foreground break-words">
                       {streamingText ? (
-                        <MarkdownResponse>{streamingText}</MarkdownResponse>
+                        <MarkdownResponse>
+                          {stripToolCallArtifacts(streamingText)}
+                        </MarkdownResponse>
                       ) : (
                         <div className="flex items-center gap-3 text-muted-foreground">
                           <div className="flex gap-1">
