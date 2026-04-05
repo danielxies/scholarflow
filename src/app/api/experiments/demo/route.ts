@@ -75,10 +75,10 @@ export async function POST(request: Request) {
     { computeTier: "standard", variant }
   );
 
-  // Mark as running
+  // Mark as running with progress updates
   dbOps.updateExperimentStatus(experimentId, "running");
 
-  // Simulate experiment completing after a short delay
+  // Complete after 30s with results
   setTimeout(() => {
     try {
       dbOps.updateExperimentResults(
@@ -95,12 +95,10 @@ export async function POST(request: Request) {
         hypothesisId,
         isBaseline ? "supported" : "partially_supported",
         isBaseline
-          ? `Baseline confirmed: accuracy improved from ${metrics.initial_accuracy * 100}% to ${metrics.final_accuracy * 100}% over 50 GRPO steps.`
-          : `Physics reward shows lower final accuracy (${metrics.final_accuracy * 100}%) but higher reasoning quality score (${(metrics as typeof PHYSICS_METRICS).reasoning_quality_score}). Cross-domain transfer is partial.`
+          ? `Baseline confirmed: accuracy improved from ${(metrics.initial_accuracy * 100).toFixed(1)}% to ${(metrics.final_accuracy * 100).toFixed(1)}% over 50 GRPO steps. Reward: ${metrics.reward_score}.`
+          : `Physics reward: lower accuracy (${(metrics.final_accuracy * 100).toFixed(1)}%) but higher reasoning quality (${(metrics as typeof PHYSICS_METRICS).reasoning_quality_score}). Partial cross-domain transfer.`
       );
-    } catch {
-      // ignore if DB is gone
-    }
+    } catch { /* ignore */ }
   }, 30000);
 
   return NextResponse.json({

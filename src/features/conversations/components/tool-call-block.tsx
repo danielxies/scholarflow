@@ -391,10 +391,13 @@ export function stripToolCallArtifacts(content: string): string {
   // Remove <actions> blocks
   let cleaned = content.replace(/<actions>[\s\S]*?<\/actions>/g, "");
 
-  // Remove trailing result section
-  const separatorIdx = cleaned.indexOf("\n---\n");
+  // Only strip trailing --- section if it looks like action results (starts with ✓ or ✗ or OK)
+  const separatorIdx = cleaned.lastIndexOf("\n---\n");
   if (separatorIdx !== -1) {
-    cleaned = cleaned.slice(0, separatorIdx);
+    const after = cleaned.slice(separatorIdx + 5).trim();
+    if (/^[✓✗]|^OK$|^File |^Memory |^Paper |^Hypothesis |^Experiment /m.test(after)) {
+      cleaned = cleaned.slice(0, separatorIdx);
+    }
   }
 
   return cleaned.trim();

@@ -67,7 +67,7 @@ export const useDemoStore = create<DemoState>((set) => ({
   currentStep: 0,
   setActiveView: null,
   start: () => set({ active: true, currentStep: 0 }),
-  stop: () => set({ active: false, currentStep: 0 }),
+  stop: () => set({ active: false }),
   nextStep: () =>
     set((s) => ({
       currentStep: Math.min(s.currentStep + 1, DEMO_STEPS.length - 1),
