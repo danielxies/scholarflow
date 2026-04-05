@@ -6,7 +6,20 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { FlaskConicalIcon } from "lucide-react";
 
-const DEMO_PROMPT = `This paper proposes a self-evolving framework where LLMs autonomously improve their reasoning on graduate-level physics problems by iteratively refining chain-of-thought strategies without weight updates. We build on recent advances in reinforcement learning for reasoning, particularly Group Relative Policy Optimization (GRPO) from DeepSeekMath, which showed that RL training can induce emergent step-by-step reasoning in language models. As a baseline, we replicate GRPO training on Qwen2.5-0.5B using the DeepMath-103K dataset to validate the self-improvement signal on math reasoning, then extend the approach to physics derivation tasks. We benchmark against the GPQA physics subset and a curated set of 200 qualifying exam problems from top PhD programs. Reference: https://arxiv.org/abs/2402.03300 | Repo: https://github.com/huggingface/trl`;
+const DEMO_PROMPT = `Self-Evolving LLMs for Graduate-Level Physics Reasoning
+
+We propose a framework where LLMs autonomously improve their reasoning on hard physics problems — without updating weights. The model generates candidate solutions, evaluates its own errors, and iteratively rewrites its chain-of-thought strategies.
+
+Key ideas:
+- Build on Group Relative Policy Optimization (GRPO) from DeepSeekMath
+- Replicate GRPO on Qwen2.5-0.5B with DeepMath-103K as a baseline
+- Extend the self-evolution loop to multi-step physics derivations
+- Benchmark on GPQA physics subset + 200 PhD qualifying exam problems
+
+We aim to show that RL-based self-improvement transfers from math to physics, where error modes are fundamentally different (dimensional analysis, conservation laws, multi-domain integration).
+
+Reference paper: https://arxiv.org/abs/2402.03300
+Code: https://github.com/huggingface/trl`;
 
 import {
   Dialog,
