@@ -54,6 +54,14 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
           });
           if (!res.ok) throw new Error("Failed to add papers");
           toast.success("3 papers added to library");
+        } else if (step.action === "write_results") {
+          const res = await fetch("/api/experiments/demo-results", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          if (!res.ok) throw new Error("Failed to write results");
+          toast.success("Results & conclusion added to paper");
         } else {
           const variant = step.action === "replicate" ? "baseline" : "physics";
           const res = await fetch("/api/experiments/demo", {

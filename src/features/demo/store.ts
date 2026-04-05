@@ -7,7 +7,7 @@ interface DemoStep {
   description: string;
   message?: string;
   tab?: ProjectView;
-  action?: "replicate" | "experiment" | "populate_papers";
+  action?: "replicate" | "experiment" | "populate_papers" | "write_results";
 }
 
 export const DEMO_STEPS: DemoStep[] = [
@@ -44,9 +44,8 @@ export const DEMO_STEPS: DemoStep[] = [
   },
   {
     label: "Write Results",
-    description: "AI writes results comparing both experiments into the paper",
-    message:
-      "Write a Results section into main.tex. The baseline GRPO achieved 34.8% accuracy (reward 0.387) while our physics-grounded reward achieved 26.4% accuracy but higher reasoning quality (0.41). Discuss what this reveals about cross-domain transfer. Include a comparison table.",
+    description: "Insert results with comparison tables and conclusion",
+    action: "write_results",
     tab: "preview",
   },
 ];
