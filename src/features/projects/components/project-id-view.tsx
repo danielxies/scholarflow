@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Allotment } from "allotment";
 
 import { cn } from "@/lib/utils";
@@ -8,6 +8,8 @@ import { EditorView } from "@/features/editor/components/editor-view";
 import { LaTeXPreview } from "@/features/preview/components/latex-preview";
 import { LiteratureView } from "@/features/literature/components/literature-view";
 import { ExperimentsView } from "@/features/experiments/components/experiments-view";
+import { DemoOverlay } from "@/features/demo/components/demo-overlay";
+import { useDemoStore, type ProjectView } from "@/features/demo/store";
 import { FileExplorer } from "./file-explorer";
 import { Id } from "@/lib/local-db/types";
 
@@ -15,8 +17,6 @@ const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
 const DEFAULT_SIDEBAR_WIDTH = 350;
 const DEFAULT_MAIN_SIZE = 1000;
-
-type ProjectView = "editor" | "literature" | "experiments" | "preview";
 
 const Tab = ({
   label,
@@ -46,6 +46,12 @@ export const ProjectIdView = ({
   projectId: Id<"projects">
 }) => {
   const [activeView, setActiveView] = useState<ProjectView>("preview");
+  const registerSetActiveView = useDemoStore((s) => s.registerSetActiveView);
+
+  const stableSetActiveView = useCallback((v: ProjectView) => setActiveView(v), []);
+  useEffect(() => {
+    registerSetActiveView(stableSetActiveView);
+  }, [registerSetActiveView, stableSetActiveView]);
 
   return (
     <div className="h-full flex flex-col">
@@ -109,6 +115,7 @@ export const ProjectIdView = ({
           <LaTeXPreview projectId={projectId} />
         </div>
       </div>
+      <DemoOverlay projectId={projectId} />
     </div>
   );
 };
