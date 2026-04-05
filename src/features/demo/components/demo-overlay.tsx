@@ -154,10 +154,10 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
             className={cn(
               "flex items-center gap-2 py-1 text-xs rounded px-1.5",
               i === currentStep && "bg-accent font-medium",
-              completedSteps.has(i) && i !== currentStep && "text-muted-foreground"
+              completedSteps.includes(i) && i !== currentStep && "text-muted-foreground"
             )}
           >
-            {completedSteps.has(i) ? (
+            {completedSteps.includes(i) ? (
               <CheckCircleIcon className="size-3 text-green-500 shrink-0" />
             ) : (
               <div
