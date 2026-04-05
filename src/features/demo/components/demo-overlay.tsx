@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import ky from "ky";
 import { toast } from "sonner";
 import {
@@ -24,10 +24,9 @@ interface DemoOverlayProps {
 }
 
 export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
-  const { active, currentStep, start, stop, nextStep, prevStep, setActiveView } =
+  const { active, currentStep, completedSteps, start, stop, nextStep, prevStep, setActiveView, markCompleted } =
     useDemoStore();
   const [sending, setSending] = useState(false);
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const conversations = useConversations(projectId);
 
   const step = DEMO_STEPS[currentStep];
@@ -99,7 +98,7 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
       }
     }
 
-    setCompletedSteps((prev) => new Set([...prev, stepIndex]));
+    markCompleted(stepIndex);
 
     // Auto-advance to next step
     if (stepIndex < DEMO_STEPS.length - 1) {
@@ -107,10 +106,6 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
     }
   };
 
-  // Reset completed steps when demo restarts
-  useEffect(() => {
-    if (!active) setCompletedSteps(new Set());
-  }, [active]);
 
   if (!active) {
     return (

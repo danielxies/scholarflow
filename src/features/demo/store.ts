@@ -54,19 +54,22 @@ export const DEMO_STEPS: DemoStep[] = [
 interface DemoState {
   active: boolean;
   currentStep: number;
+  completedSteps: Set<number>;
   setActiveView: ((view: ProjectView) => void) | null;
   start: () => void;
   stop: () => void;
   nextStep: () => void;
   prevStep: () => void;
+  markCompleted: (step: number) => void;
   registerSetActiveView: (fn: (view: ProjectView) => void) => void;
 }
 
 export const useDemoStore = create<DemoState>((set) => ({
   active: true,
   currentStep: 0,
+  completedSteps: new Set(),
   setActiveView: null,
-  start: () => set({ active: true, currentStep: 0 }),
+  start: () => set({ active: true, currentStep: 0, completedSteps: new Set() }),
   stop: () => set({ active: false }),
   nextStep: () =>
     set((s) => ({
@@ -74,5 +77,7 @@ export const useDemoStore = create<DemoState>((set) => ({
     })),
   prevStep: () =>
     set((s) => ({ currentStep: Math.max(s.currentStep - 1, 0) })),
+  markCompleted: (step) =>
+    set((s) => ({ completedSteps: new Set([...s.completedSteps, step]) })),
   registerSetActiveView: (fn) => set({ setActiveView: fn }),
 }));
