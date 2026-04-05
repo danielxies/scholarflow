@@ -120,7 +120,7 @@ function buildCustomExperimentCopy(experiment: {
   const rationale = [
     experiment.repoUrl ? `Repository context: ${experiment.repoUrl}` : null,
     experiment.datasetNote.trim()
-      ? `Dataset note: ${experiment.datasetNote.trim()}`
+      ? `Dataset/access note: ${experiment.datasetNote.trim()}`
       : null,
     experiment.contextPaperCount
       ? `Context papers: ${experiment.contextPaperCount} selected from the library.`

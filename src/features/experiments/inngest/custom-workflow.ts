@@ -7,24 +7,36 @@ import * as dbOps from "@/lib/db";
 import { inngest } from "@/inngest/client";
 import { REPRODUCTION_EVENTS } from "@/features/reproduction/inngest/events";
 import {
+  buildCompactSynthesisPack,
+  MAX_BUNDLE_REPAIR_ATTEMPTS,
+  preflightExecutionBundle,
   buildCustomExecutionSourcePack,
   compileCustomExecutionSpec,
   ExecutionPlanningBlockerError,
+  extractSynthesisDiagnostics,
   generateCustomExecutionPlannerOutput,
+  repairExecutionBundle,
   serializeExecutionPlanningBlocker,
   synthesizeExecutionBundle,
   validateExecutionBundle,
+  type BundleRepairAttemptRecord,
   type ExecutionPlannerOutput,
+  type ExecutionSpec,
   type ExecutionSourcePack,
   type NormalizedExecutionBundle,
 } from "@/features/reproduction/server/execution-spec";
 import { inspectGitHubRepository } from "@/features/reproduction/server/github-inspector";
-import { submitModalExecution } from "@/features/reproduction/server/modal-runner";
+import {
+  ModalRunnerContractError,
+  preflightModalExecution,
+  submitModalExecution,
+} from "@/features/reproduction/server/modal-runner";
 import { getRunnerCallbackSecret } from "@/features/reproduction/server/runner-config";
 import {
   blockExperiment,
   failExperiment,
 } from "@/features/reproduction/server/state-transitions";
+import { generateCustomExperimentReport } from "@/features/reproduction/server/report-generation";
 import { CUSTOM_EXPERIMENT_EVENTS } from "./events";
 
 type CustomExperimentStage =
@@ -35,6 +47,7 @@ type CustomExperimentStage =
   | "synthesize_bundle"
   | "validate_bundle"
   | "compile_execution_spec"
+  | "preflight_bundle"
   | "submit_runner_job"
   | "monitor_runner_job"
   | "extract_results"
@@ -134,6 +147,8 @@ function stageProgress(stage: CustomExperimentStage): number {
       return 62;
     case "compile_execution_spec":
       return 72;
+    case "preflight_bundle":
+      return 78;
     case "submit_runner_job":
       return 82;
     case "monitor_runner_job":
@@ -162,6 +177,8 @@ function nextStage(stage: CustomExperimentStage): CustomExperimentStage | null {
     case "validate_bundle":
       return "compile_execution_spec";
     case "compile_execution_spec":
+      return "preflight_bundle";
+    case "preflight_bundle":
       return "submit_runner_job";
     case "submit_runner_job":
       return "monitor_runner_job";
@@ -209,7 +226,7 @@ async function extractTarget(params: {
     `Experiment title: ${params.hypothesis.title}`,
     `Description: ${params.context.description}`,
     `Benchmark note: ${params.context.benchmark ?? "none"}`,
-    `Dataset note: ${params.context.datasetNote ?? "none"}`,
+    `Dataset/access note: ${params.context.datasetNote ?? "none"}`,
     "",
     "Context papers:",
     params.contextPapers.length
@@ -401,7 +418,8 @@ export const customExperimentStage = inngest.createFunction(
         stage === "collect_source_pack" ||
         stage === "synthesize_bundle" ||
         stage === "validate_bundle" ||
-        stage === "compile_execution_spec"
+        stage === "compile_execution_spec" ||
+        stage === "preflight_bundle"
           ? "planned"
           : stage === "generate_report"
             ? "completed"
@@ -635,11 +653,103 @@ export const customExperimentStage = inngest.createFunction(
             throw new NonRetriableError("Source pack artifact not found");
           }
 
-          const bundle = await step.run("synthesize-custom-normalized-bundle", async () =>
-            synthesizeExecutionBundle({ sourcePack })
+          const compactSourcePack = buildCompactSynthesisPack(sourcePack);
+          await step.run("persist-custom-compact-synthesis-pack", async () => {
+            dbOps.addExperimentArtifact({
+              projectId,
+              hypothesisId,
+              experimentId,
+              type: "compact_synthesis_pack",
+              uri: `inline://compact-synthesis-pack/${experimentId}`,
+              metadata: safeStringify(compactSourcePack),
+            });
+          });
+
+          const synthesisResult = await step.run(
+            "synthesize-custom-normalized-bundle",
+            async () => {
+              try {
+                return {
+                  ok: true as const,
+                  result: await synthesizeExecutionBundle({ sourcePack }),
+                };
+              } catch (error) {
+                return {
+                  ok: false as const,
+                  blocker: serializeExecutionPlanningBlocker(error),
+                  diagnostics: extractSynthesisDiagnostics(error),
+                  errorMessage: error instanceof Error ? error.message : String(error),
+                };
+              }
+            }
           );
 
+          if (!synthesisResult.ok) {
+            await step.run("persist-custom-synthesis-diagnostics-failure", async () => {
+              if (synthesisResult.diagnostics) {
+                dbOps.addExperimentArtifact({
+                  projectId,
+                  hypothesisId,
+                  experimentId,
+                  type: "bundle_synthesis_diagnostics",
+                  uri: `inline://bundle-synthesis-diagnostics/${experimentId}`,
+                  metadata: safeStringify(synthesisResult.diagnostics),
+                });
+              }
+
+              dbOps.addExperimentLog({
+                projectId,
+                hypothesisId,
+                experimentId,
+                phase: "synthesize_bundle",
+                kind: "failure",
+                message: synthesisResult.blocker
+                  ? synthesisResult.blocker.message
+                  : `Bundle synthesis failed: ${synthesisResult.errorMessage}`,
+                metadata: synthesisResult.diagnostics
+                  ? safeStringify(synthesisResult.diagnostics)
+                  : null,
+              });
+            });
+
+            if (synthesisResult.blocker) {
+              blockExperiment({
+                projectId,
+                hypothesisId,
+                experimentId,
+                phase: stage,
+                blockerType: synthesisResult.blocker.blockerType,
+                message: synthesisResult.blocker.message,
+                requiredInput: synthesisResult.blocker.requiredInput,
+              });
+
+              return { success: true, projectId, hypothesisId, experimentId, blocked: true };
+            }
+
+            failExperiment({
+              projectId,
+              hypothesisId,
+              experimentId,
+              phase: stage,
+              message: `Bundle synthesis failed: ${synthesisResult.errorMessage}`,
+              workflowStatus: "failed",
+            });
+
+            return { success: false, projectId, hypothesisId, experimentId, failed: true };
+          }
+
+          const { bundle, diagnostics } = synthesisResult.result;
+
           await step.run("persist-custom-normalized-bundle", async () => {
+            dbOps.addExperimentArtifact({
+              projectId,
+              hypothesisId,
+              experimentId,
+              type: "bundle_synthesis_diagnostics",
+              uri: `inline://bundle-synthesis-diagnostics/${experimentId}`,
+              metadata: safeStringify(diagnostics),
+            });
+
             dbOps.addExperimentArtifact({
               projectId,
               hypothesisId,
@@ -673,8 +783,11 @@ export const customExperimentStage = inngest.createFunction(
                 "Synthesized a compact normalized execution bundle from the custom experiment source pack.",
               metadata: safeStringify({
                 strategy: bundle.strategy,
+                inferenceLevel: bundle.inferenceLevel,
+                credibilityScore: bundle.credibilityScore,
                 entrypoint: bundle.entrypoint,
                 fileCount: bundle.files.length,
+                diagnostics,
               }),
             });
           });
@@ -841,10 +954,318 @@ export const customExperimentStage = inngest.createFunction(
                 repoRef: executionSpec.repo?.ref ?? null,
                 datasetAccess: executionSpec.datasets.accessMode,
                 bundleStrategy: executionSpec.bundle.strategy,
+                inferenceLevel: executionSpec.inferenceLevel,
+                credibilityScore: executionSpec.credibilityScore,
                 bundleFileCount: executionSpec.bundle.files.length,
                 entrypoint: executionSpec.bundle.entrypoint,
               }),
               progressDetails: "Compiled canonical execution spec",
+            });
+          });
+          break;
+        }
+
+        case "preflight_bundle": {
+          const sourcePackArtifact = dbOps.getLatestExperimentArtifactByType(
+            experimentId,
+            "source_pack"
+          );
+          const bundleArtifact = dbOps.getLatestExperimentArtifactByType(
+            experimentId,
+            "normalized_bundle"
+          );
+          const specArtifact = dbOps.getLatestExperimentArtifactByType(
+            experimentId,
+            "execution_spec"
+          );
+          const sourcePack = parseArtifactJson<ExecutionSourcePack>(sourcePackArtifact);
+          const initialBundle = parseArtifactJson<NormalizedExecutionBundle>(bundleArtifact);
+          const initialExecutionSpec = parseArtifactJson<ExecutionSpec>(specArtifact);
+
+          if (!sourcePack || !initialBundle || !initialExecutionSpec) {
+            throw new NonRetriableError("Bundle preflight prerequisites not found");
+          }
+
+          const preflightResult = await step.run(
+            "preflight-and-repair-custom-bundle",
+            async () => {
+              let currentBundle = initialBundle;
+              let currentExecutionSpec = initialExecutionSpec;
+              const repairAttempts: BundleRepairAttemptRecord[] = [];
+              let finalReport: unknown = null;
+
+              for (
+                let attemptNumber = 1;
+                attemptNumber <= MAX_BUNDLE_REPAIR_ATTEMPTS;
+                attemptNumber += 1
+              ) {
+                const localReport = preflightExecutionBundle({
+                  sourcePack,
+                  bundle: currentBundle,
+                  executionSpec: currentExecutionSpec,
+                });
+
+                if (!localReport.ok) {
+                  finalReport = localReport;
+                  const repair = await repairExecutionBundle({
+                    sourcePack,
+                    bundle: currentBundle,
+                    executionSpec: currentExecutionSpec,
+                    report: localReport,
+                    attemptNumber,
+                  });
+                  repairAttempts.push({
+                    attemptNumber,
+                    source: "local",
+                    failureClass: localReport.failureClass ?? "local_preflight_failed",
+                    errorSummary:
+                      localReport.errorSummary ??
+                      "Local bundle preflight failed.",
+                    checks: localReport.checks,
+                    repairSummary: repair.repairSummary,
+                  });
+                  currentBundle = repair.bundle;
+                  currentExecutionSpec = compileCustomExecutionSpec({
+                    context: {
+                      hypothesis: workspace.hypothesis,
+                      experiment: workspace.experiment!,
+                      customContext: workspace.customContext!,
+                      contextPapers,
+                      repoContext: null,
+                      appBaseUrl: parseStoredSettings(
+                        workspace.customContext!.settingsSnapshot
+                      ).appBaseUrl,
+                    },
+                    sourcePack,
+                    bundle: currentBundle,
+                  });
+                  continue;
+                }
+
+                try {
+                  const remoteReport = await preflightModalExecution({
+                    spec: currentExecutionSpec,
+                  });
+                  finalReport = remoteReport;
+                  if (remoteReport.ok) {
+                    return {
+                      ok: true as const,
+                      bundle: currentBundle,
+                      executionSpec: currentExecutionSpec,
+                      report: remoteReport,
+                      repairAttempts,
+                    };
+                  }
+
+                  const repair = await repairExecutionBundle({
+                    sourcePack,
+                    bundle: currentBundle,
+                    executionSpec: currentExecutionSpec,
+                    report: remoteReport,
+                    attemptNumber,
+                  });
+                  repairAttempts.push({
+                    attemptNumber,
+                    source: "remote",
+                    failureClass: remoteReport.failureClass ?? "remote_preflight_failed",
+                    errorSummary:
+                      remoteReport.errorSummary ??
+                      "Remote Modal bundle preflight failed.",
+                    checks: remoteReport.checks,
+                    repairSummary: repair.repairSummary,
+                  });
+                  currentBundle = repair.bundle;
+                  currentExecutionSpec = compileCustomExecutionSpec({
+                    context: {
+                      hypothesis: workspace.hypothesis,
+                      experiment: workspace.experiment!,
+                      customContext: workspace.customContext!,
+                      contextPapers,
+                      repoContext: null,
+                      appBaseUrl: parseStoredSettings(
+                        workspace.customContext!.settingsSnapshot
+                      ).appBaseUrl,
+                    },
+                    sourcePack,
+                    bundle: currentBundle,
+                  });
+                } catch (error) {
+                  if (error instanceof ModalRunnerContractError) {
+                    return {
+                      ok: false as const,
+                      infrastructureError: error.message,
+                      report: {
+                        ok: false,
+                        failureClass: "contract_mismatch",
+                        errorSummary: error.message,
+                        warnings: [],
+                        checks: [],
+                      },
+                      repairAttempts,
+                    };
+                  }
+
+                  const remoteReport = {
+                    ok: false,
+                    failureClass: "remote_preflight_failed",
+                    errorSummary:
+                      error instanceof Error ? error.message : String(error),
+                    warnings: [],
+                    checks: [
+                      {
+                        name: "modal_preflight_request",
+                        source: "remote" as const,
+                        status: "failed" as const,
+                        summary: "Modal preflight request failed.",
+                        details:
+                          error instanceof Error ? error.message : String(error),
+                      },
+                    ],
+                  };
+                  finalReport = remoteReport;
+                  const repair = await repairExecutionBundle({
+                    sourcePack,
+                    bundle: currentBundle,
+                    executionSpec: currentExecutionSpec,
+                    report: remoteReport,
+                    attemptNumber,
+                  });
+                  repairAttempts.push({
+                    attemptNumber,
+                    source: "remote",
+                    failureClass: "remote_preflight_failed",
+                    errorSummary: remoteReport.errorSummary,
+                    checks: remoteReport.checks,
+                    repairSummary: repair.repairSummary,
+                  });
+                  currentBundle = repair.bundle;
+                  currentExecutionSpec = compileCustomExecutionSpec({
+                    context: {
+                      hypothesis: workspace.hypothesis,
+                      experiment: workspace.experiment!,
+                      customContext: workspace.customContext!,
+                      contextPapers,
+                      repoContext: null,
+                      appBaseUrl: parseStoredSettings(
+                        workspace.customContext!.settingsSnapshot
+                      ).appBaseUrl,
+                    },
+                    sourcePack,
+                    bundle: currentBundle,
+                  });
+                }
+              }
+
+              return {
+                ok: false as const,
+                report: finalReport,
+                bundle: currentBundle,
+                executionSpec: currentExecutionSpec,
+                repairAttempts,
+              };
+            }
+          );
+
+          await step.run("persist-custom-bundle-preflight-artifacts", async () => {
+            if ("bundle" in preflightResult && preflightResult.bundle) {
+              dbOps.addExperimentArtifact({
+                projectId,
+                hypothesisId,
+                experimentId,
+                type: "normalized_bundle",
+                uri: `inline://normalized-bundle/${experimentId}`,
+                metadata: safeStringify(preflightResult.bundle),
+              });
+            }
+
+            if ("executionSpec" in preflightResult && preflightResult.executionSpec) {
+              dbOps.addExperimentArtifact({
+                projectId,
+                hypothesisId,
+                experimentId,
+                type: "execution_spec",
+                uri: `inline://execution-spec/${experimentId}`,
+                metadata: safeStringify(preflightResult.executionSpec),
+              });
+            }
+
+            if (preflightResult.report) {
+              dbOps.addExperimentArtifact({
+                projectId,
+                hypothesisId,
+                experimentId,
+                type: "bundle_preflight_report",
+                uri: `inline://bundle-preflight-report/${experimentId}`,
+                metadata: safeStringify(preflightResult.report),
+              });
+            }
+
+            dbOps.addExperimentArtifact({
+              projectId,
+              hypothesisId,
+              experimentId,
+              type: "bundle_repair_attempts",
+              uri: `inline://bundle-repair-attempts/${experimentId}`,
+              metadata: safeStringify(preflightResult.repairAttempts ?? []),
+            });
+          });
+
+          if (!preflightResult.ok) {
+            const reportSummary =
+              preflightResult.report &&
+              typeof preflightResult.report === "object" &&
+              "errorSummary" in preflightResult.report &&
+              typeof preflightResult.report.errorSummary === "string"
+                ? preflightResult.report.errorSummary
+                : null;
+
+            if ("infrastructureError" in preflightResult && preflightResult.infrastructureError) {
+              failExperiment({
+                projectId,
+                hypothesisId,
+                experimentId,
+                phase: stage,
+                message: preflightResult.infrastructureError,
+                workflowStatus: "failed",
+                payload: preflightResult.report ?? null,
+              });
+
+              return { success: false, projectId, hypothesisId, experimentId, failed: true };
+            }
+
+            failExperiment({
+              projectId,
+              hypothesisId,
+              experimentId,
+              phase: stage,
+              message:
+                reportSummary ??
+                `Bundle preflight failed after ${MAX_BUNDLE_REPAIR_ATTEMPTS} repair attempts.`,
+              workflowStatus: "failed",
+              payload: {
+                report: preflightResult.report ?? null,
+                repairAttempts: preflightResult.repairAttempts,
+              },
+            });
+
+            return { success: false, projectId, hypothesisId, experimentId, failed: true };
+          }
+
+          await step.run("persist-custom-bundle-preflight-success-log", async () => {
+            dbOps.addExperimentLog({
+              projectId,
+              hypothesisId,
+              experimentId,
+              phase: "preflight_bundle",
+              kind: "planning",
+              message:
+                preflightResult.repairAttempts.length > 0
+                  ? `Bundle preflight passed after ${preflightResult.repairAttempts.length} repair attempt(s).`
+                  : "Bundle preflight passed locally and on the Modal worker image.",
+              metadata: safeStringify(preflightResult.report),
+            });
+            dbOps.updateExperiment(experimentId, {
+              progressDetails: "Bundle preflight passed and is ready for Modal execution.",
             });
           });
           break;
@@ -1042,33 +1463,27 @@ export const customExperimentStage = inngest.createFunction(
             );
           }
 
-          await step.run("persist-custom-report", async () => {
-            const reportMarkdown = [
-              "# Experiment Report",
-              "",
-              `- Experiment: ${latestWorkspace.hypothesis.title}`,
-              `- Workflow status: ${latestWorkspace.hypothesis.workflowStatus ?? "unknown"}`,
-              `- Description: ${latestContext.description}`,
-              `- Benchmark: ${latestContext.benchmark ?? "Unspecified"}`,
-              `- Repository: ${latestContext.repoUrl ?? "Unspecified"}`,
-              `- Target metric: ${latestWorkspace.hypothesis.targetMetric ?? "Unknown"}`,
-              `- Target value: ${latestWorkspace.hypothesis.targetValue ?? "Unknown"}`,
-              `- Best result: ${latestWorkspace.hypothesis.bestValue ?? "Unknown"}`,
-              `- Gap: ${latestWorkspace.hypothesis.gap ?? "Unknown"}`,
-              "",
-              "## Findings",
-              ...latestWorkspace.findings
-                .slice(0, 10)
-                .map((finding) => `- [${finding.type}] ${finding.message}`),
-            ].join("\n");
+          const generatedReport = await step.run("generate-custom-report", async () => {
+            return generateCustomExperimentReport({
+              customContext: latestContext,
+              hypothesis: latestWorkspace.hypothesis,
+              experiment: latestWorkspace.experiment!,
+              blocker: latestWorkspace.blocker,
+              findings: latestWorkspace.findings,
+              logs: latestWorkspace.logs,
+              artifacts: latestWorkspace.artifacts,
+              executionJob: latestWorkspace.executionJob,
+            });
+          });
 
+          await step.run("persist-custom-report", async () => {
             dbOps.addExperimentArtifact({
               projectId,
               hypothesisId,
               experimentId,
               type: "report_markdown",
               uri: `inline://report/${experimentId}`,
-              metadata: reportMarkdown,
+              metadata: generatedReport.markdown,
             });
             dbOps.addExperimentArtifact({
               projectId,
@@ -1076,15 +1491,7 @@ export const customExperimentStage = inngest.createFunction(
               experimentId,
               type: "report_json",
               uri: `inline://report-json/${experimentId}`,
-              metadata: safeStringify({
-                hypothesis: latestWorkspace.hypothesis,
-                experiment: latestWorkspace.experiment,
-                customContext: latestContext,
-                blocker: latestWorkspace.blocker,
-                findings: latestWorkspace.findings,
-                logs: latestWorkspace.logs.slice(0, 50),
-                executionJob: latestWorkspace.executionJob,
-              }),
+              metadata: safeStringify(generatedReport.payload),
             });
             dbOps.updateHypothesis(hypothesisId, {
               status: "completed",

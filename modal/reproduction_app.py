@@ -16,6 +16,8 @@ from fastapi import Header, HTTPException
 
 
 APP_NAME = os.getenv("REPRODUCTION_MODAL_APP_NAME", "scholarflow-reproduction")
+RUNNER_CONTRACT_VERSION = "bundle-v2"
+WORKER_BUILD = os.getenv("REPRODUCTION_MODAL_WORKER_BUILD", "bundle-v2")
 RUNNER_SECRET_NAME = os.getenv(
     "REPRODUCTION_MODAL_SECRET_NAME", "scholarflow-reproduction-secrets"
 )
@@ -130,6 +132,36 @@ def _materialize_bundle(bundle: dict[str, Any], workdir: Path) -> Path:
         target_path.write_text(file_spec["content"])
 
     return bundle_dir
+
+
+def _run_capture_process(
+    cwd: Path, argv: list[str], timeout_seconds: int
+) -> dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=str(cwd),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+        output = (completed.stdout or "").strip()
+        recent_lines = output.splitlines()[-60:]
+        return {
+            "ok": completed.returncode == 0,
+            "returnCode": completed.returncode,
+            "output": "\n".join(recent_lines),
+        }
+    except subprocess.TimeoutExpired as exc:
+        output = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
+        return {
+            "ok": False,
+            "returnCode": None,
+            "output": "\n".join(output.splitlines()[-60:]),
+            "timeout": True,
+        }
 
 
 def _emit_artifact_matches(
@@ -390,6 +422,7 @@ def _run_execution(payload: dict[str, Any], runner_job_id: str) -> None:
                     "type": "job_failed",
                     "runnerBackend": "modal",
                     "runnerJobId": runner_job_id,
+                    "failureClass": "runtime_failed",
                     "error": error_summary,
                     "resultSummary": "\n".join(recent_lines[-30:]) or None,
                 },
@@ -402,6 +435,122 @@ def _run_execution(payload: dict[str, Any], runner_job_id: str) -> None:
                 flush=True,
             )
         raise
+
+
+def _preflight_execution_spec(spec: dict[str, Any]) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = []
+    warnings: list[str] = []
+
+    with tempfile.TemporaryDirectory(prefix="scholarflow-preflight-") as temp_dir:
+        workdir = Path(temp_dir)
+        bundle_dir = _materialize_bundle(spec["bundle"], workdir)
+        entrypoint = spec["bundle"]["entrypoint"]
+        entrypoint_path = bundle_dir / entrypoint
+
+        if entrypoint_path.exists():
+            checks.append(
+                {
+                    "name": "entrypoint_exists",
+                    "source": "remote",
+                    "status": "passed",
+                    "summary": f"Entrypoint {entrypoint} exists in the materialized bundle.",
+                    "details": None,
+                }
+            )
+        else:
+            checks.append(
+                {
+                    "name": "entrypoint_exists",
+                    "source": "remote",
+                    "status": "failed",
+                    "summary": f"Entrypoint {entrypoint} is missing from the materialized bundle.",
+                    "details": None,
+                }
+            )
+
+        python_files = sorted(bundle_dir.rglob("*.py"))
+        if python_files:
+            compile_result = _run_capture_process(
+                bundle_dir,
+                ["python", "-m", "py_compile", *[str(path.relative_to(bundle_dir)) for path in python_files]],
+                120,
+            )
+            checks.append(
+                {
+                    "name": "py_compile",
+                    "source": "remote",
+                    "status": "passed" if compile_result["ok"] else "failed",
+                    "summary": (
+                        "Generated Python files compile successfully."
+                        if compile_result["ok"]
+                        else "Generated Python files failed py_compile validation."
+                    ),
+                    "details": compile_result.get("output") or None,
+                }
+            )
+        else:
+            checks.append(
+                {
+                    "name": "py_compile",
+                    "source": "remote",
+                    "status": "skipped",
+                    "summary": "No Python files were present for py_compile validation.",
+                    "details": None,
+                }
+            )
+
+        requirements_path = bundle_dir / "requirements.txt"
+        requirements_text = (
+            requirements_path.read_text().strip() if requirements_path.exists() else ""
+        )
+        if requirements_text and any(
+            line.strip() and not line.lstrip().startswith("#")
+            for line in requirements_text.splitlines()
+        ):
+            install_command = list(spec["bundle"].get("installCommand", [])) or [
+                "python",
+                "-m",
+                "pip",
+                "install",
+                "-r",
+                "requirements.txt",
+            ]
+            install_result = _run_capture_process(bundle_dir, install_command, 900)
+            checks.append(
+                {
+                    "name": "install_dependencies",
+                    "source": "remote",
+                    "status": "passed" if install_result["ok"] else "failed",
+                    "summary": (
+                        "Bundle dependencies installed successfully."
+                        if install_result["ok"]
+                        else "Bundle dependency installation failed during remote preflight."
+                    ),
+                    "details": install_result.get("output") or None,
+                }
+            )
+        else:
+            checks.append(
+                {
+                    "name": "install_dependencies",
+                    "source": "remote",
+                    "status": "skipped",
+                    "summary": "No non-comment requirements were present, so dependency install was skipped.",
+                    "details": None,
+                }
+            )
+
+    failures = [check for check in checks if check["status"] == "failed"]
+    return {
+        "ok": len(failures) == 0,
+        "runnerContractVersion": RUNNER_CONTRACT_VERSION,
+        "workerBuild": WORKER_BUILD,
+        "supportsPreflight": True,
+        "checks": checks,
+        "warnings": warnings,
+        "errorSummary": " ".join(check["summary"] for check in failures) if failures else None,
+        "failureClass": "preflight_failed" if failures else None,
+    }
 
 
 @app.function(image=image, cpu=4, timeout=3600)
@@ -426,6 +575,32 @@ def _spawn_worker(payload: dict[str, Any]):
     if tier == "extended":
         return run_extended.spawn(payload, payload["runnerJobId"])
     return run_standard.spawn(payload, payload["runnerJobId"])
+
+
+@app.function(image=image)
+@modal.fastapi_endpoint(method="POST")
+def capabilities(x_scholarflow_runner_secret: str = Header(default="")):
+    _require_secret(x_scholarflow_runner_secret)
+
+    return {
+        "runnerContractVersion": RUNNER_CONTRACT_VERSION,
+        "workerBuild": WORKER_BUILD,
+        "supportsPreflight": True,
+    }
+
+
+@app.function(image=image)
+@modal.fastapi_endpoint(method="POST")
+def preflight(
+    payload: dict[str, Any], x_scholarflow_runner_secret: str = Header(default="")
+):
+    _require_secret(x_scholarflow_runner_secret)
+
+    spec = payload.get("executionSpec")
+    if not isinstance(spec, dict):
+        raise HTTPException(status_code=400, detail="Missing executionSpec")
+
+    return _preflight_execution_spec(spec)
 
 
 @app.function(image=image)
