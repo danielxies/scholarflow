@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import ky from "ky";
 import { toast } from "sonner";
 import {
@@ -27,6 +27,24 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
   const { active, currentStep, completedSteps, start, stop, nextStep, prevStep, setActiveView, markCompleted } =
     useDemoStore();
   const [sending, setSending] = useState(false);
+  const [statusText, setStatusText] = useState("Sending...");
+  const statusInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (sending) {
+      const words = ["Analyzing...", "Thinking...", "Researching...", "Writing...", "Generating...", "Compiling..."];
+      let i = 0;
+      setStatusText(words[0]);
+      statusInterval.current = setInterval(() => {
+        i = (i + 1) % words.length;
+        setStatusText(words[i]);
+      }, 3000);
+    } else {
+      if (statusInterval.current) clearInterval(statusInterval.current);
+      setStatusText("Sending...");
+    }
+    return () => { if (statusInterval.current) clearInterval(statusInterval.current); };
+  }, [sending]);
   const conversations = useConversations(projectId);
 
   const step = DEMO_STEPS[currentStep];
@@ -209,7 +227,7 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
           {sending ? (
             <>
               <LoaderIcon className="size-3.5 animate-spin" />
-              Sending...
+              {statusText}
             </>
           ) : (
             <>

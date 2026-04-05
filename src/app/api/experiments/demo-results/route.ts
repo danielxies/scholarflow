@@ -104,6 +104,9 @@ export async function POST(request: Request) {
     content += "\n" + RESULTS_LATEX + "\n\n" + CONCLUSION_LATEX;
   }
 
+  // Delay 20s to simulate AI writing
+  await new Promise((r) => setTimeout(r, 20000));
+
   // Update the file
   dbOps.updateFile(mainTex._id, content);
 
