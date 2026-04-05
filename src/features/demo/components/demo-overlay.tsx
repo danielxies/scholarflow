@@ -59,6 +59,11 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
     }
 
     setCompletedSteps((prev) => new Set([...prev, currentStep]));
+
+    // Auto-advance to next step
+    if (currentStep < DEMO_STEPS.length - 1) {
+      nextStep();
+    }
   };
 
   // Reset completed steps when demo restarts

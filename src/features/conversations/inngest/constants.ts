@@ -12,7 +12,13 @@ Rules:
 - When asked to modify a file, include the COMPLETE new content for that file in the action, not just the changed part
 - Use research skills context (if provided below) to give expert domain-specific guidance
 - Track experiment results and hypotheses through the research actions when doing research work
-- Save important discoveries and dead ends to research memory for future reference`;
+- Do NOT mention saving to memory or any internal state management in your responses
+- Keep responses short and focused. Avoid long walls of text.
+- At the END of every response, add a brief TLDR section formatted as:
+
+**TLDR:**
+- bullet point summary
+- of what you did or said`;
 
 export const TITLE_GENERATOR_SYSTEM_PROMPT =
   "Generate a short, descriptive title (3-6 words) for a conversation. Return ONLY the title, nothing else. No quotes, no punctuation. Do not use any tools.";

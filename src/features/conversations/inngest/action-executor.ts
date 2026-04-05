@@ -223,7 +223,7 @@ export async function executeActions(
             act.content as string,
             act.source as string | undefined
           );
-          results.push(`Memory saved (id: ${mId})`);
+          results.push(`OK`);
           break;
         }
         case "getResearchMemory": {
