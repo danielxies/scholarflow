@@ -9,8 +9,8 @@ import { Id } from "@/lib/local-db/types";
 
 const MIN_SIDEBAR_WIDTH = 320;
 const MAX_SIDEBAR_WIDTH = 800;
-const DEFAULT_CONVERSATION_SIDEBAR_WIDTH = 400;
-const DEFAULT_MAIN_SIZE = 1000;
+const DEFAULT_CONVERSATION_SIDEBAR_WIDTH = 450;
+const DEFAULT_MAIN_SIZE = 550;
 
 export const ProjectIdLayout = ({
   children,

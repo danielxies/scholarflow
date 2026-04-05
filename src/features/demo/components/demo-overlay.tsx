@@ -47,9 +47,20 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
     if (step.message && conversationId) {
       setSending(true);
       try {
-        await ky.post("/api/messages", {
-          json: { conversationId, message: step.message },
+        const res = await fetch("/api/messages/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversationId, message: step.message }),
         });
+        if (!res.ok) throw new Error("Failed");
+        // Consume the stream (chat sidebar will display it via polling)
+        const reader = res.body?.getReader();
+        if (reader) {
+          while (true) {
+            const { done } = await reader.read();
+            if (done) break;
+          }
+        }
       } catch {
         toast.error("Failed to send message");
       } finally {

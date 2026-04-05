@@ -2,7 +2,7 @@
 
 import ky from "ky";
 import { toast } from "sonner";
-import { useState, memo } from "react";
+import { useState, useRef, memo } from "react";
 import {
   CopyIcon,
   HistoryIcon,
@@ -54,6 +54,8 @@ export const ConversationSidebar = ({
   projectId,
 }: ConversationSidebarProps) => {
   const [input, setInput] = useState("");
+  const [streamingText, setStreamingText] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const [
     pastConversationsOpen,
     setPastConversationsOpen
@@ -74,17 +76,23 @@ export const ConversationSidebar = ({
   const activeConversation = useConversation(activeConversationId);
   const conversationMessages = useMessages(activeConversationId);
 
-  const isProcessing = conversationMessages?.some(
+  const isProcessing = streamingText !== null || conversationMessages?.some(
     (msg) => msg.status === "processing"
   );
 
   const handleCancel = async () => {
+    // Abort streaming request
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+      setStreamingText(null);
+    }
     try {
       await ky.post("/api/messages/cancel", {
         json: { projectId },
       });
     } catch {
-      toast.error("Unable to cancel request");
+      // ignore
     }
   };
 
@@ -119,18 +127,45 @@ export const ConversationSidebar = ({
       if (!conversationId) return;
     }
 
-    try {
-      await ky.post("/api/messages", {
-        json: {
-          conversationId,
-          message: input.trim(),
-        },
-      });
-    } catch {
-      toast.error("Message failed to send");
-    }
-
+    const messageText = input.trim();
     setInput("");
+    setStreamingText("");
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch("/api/messages/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId, message: messageText }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        toast.error("Message failed to send");
+        setStreamingText(null);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setStreamingText(acc);
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        toast.error("Message failed to send");
+      }
+    } finally {
+      setStreamingText(null);
+      abortRef.current = null;
+    }
   };
 
   return (
@@ -176,16 +211,14 @@ export const ConversationSidebar = ({
             {conversationMessages?.map((message, messageIndex) => (
               <div key={message._id} className="flex flex-col gap-1.5">
                 {message.role === "user" ? (
-                  /* User message — dark bubble */
                   <div className="ml-auto max-w-[85%]">
                     <div className="rounded-lg bg-accent px-3.5 py-2.5 text-sm text-foreground">
                       {message.content}
                     </div>
                   </div>
                 ) : (
-                  /* Assistant message — research response style */
                   <div className="w-full">
-                    {message.status === "processing" ? (
+                    {message.status === "processing" && streamingText === null ? (
                       <div className="flex items-center gap-2 text-muted-foreground py-2">
                         <LoaderIcon className="size-3.5 animate-spin" />
                         <span className="text-xs font-mono">Processing...</span>
@@ -201,17 +234,14 @@ export const ConversationSidebar = ({
                       <span className="text-xs text-muted-foreground italic">
                         Request cancelled
                       </span>
-                    ) : (
+                    ) : message.content ? (
                       <div className="flex flex-col gap-2">
-                        {/* Response label */}
                         <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-secondary">
                           Response
                         </span>
-                        {/* Response body */}
                         <div className="rounded-md border border-border/50 bg-card p-3.5 text-[13px] leading-relaxed text-foreground break-words">
                           <MarkdownResponse>{message.content}</MarkdownResponse>
                         </div>
-                        {/* Actions */}
                         {messageIndex === (conversationMessages?.length ?? 0) - 1 && (
                           <div className="flex items-center gap-2">
                             <Button
@@ -226,11 +256,41 @@ export const ConversationSidebar = ({
                           </div>
                         )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </div>
             ))}
+
+            {/* Streaming response */}
+            {streamingText !== null && (
+              <div className="flex flex-col gap-1.5">
+                <div className="w-full">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-secondary">
+                      Response
+                    </span>
+                    <div className="rounded-md border border-border/50 bg-card p-3.5 text-[13px] leading-relaxed text-foreground break-words">
+                      {streamingText ? (
+                        <MarkdownResponse>{streamingText}</MarkdownResponse>
+                      ) : (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <LoaderIcon className="size-3.5 animate-spin" />
+                          <span className="text-xs font-mono">Thinking...</span>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleCancel}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
+                    >
+                      <XIcon className="size-3" />
+                      Stop
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
