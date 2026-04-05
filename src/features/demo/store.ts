@@ -7,52 +7,46 @@ interface DemoStep {
   description: string;
   message?: string;
   tab?: ProjectView;
-  action?: "replicate" | "experiment";
+  action?: "replicate" | "experiment" | "populate_papers";
 }
 
 export const DEMO_STEPS: DemoStep[] = [
   {
     label: "Draft Introduction",
-    description: "Ask AI to draft a brief intro into main.tex",
+    description: "AI writes the intro with citations into the LaTeX file",
     message:
-      "Draft a concise introduction for main.tex. Motivate the problem of self-improving LLM reasoning, mention GRPO and STaR as key prior work, and state our research question: can we transfer self-improvement loops to new domains by swapping the reward signal?",
+      "Draft a concise 3-paragraph introduction for main.tex. Motivate self-improving LLM reasoning, cite GRPO (DeepSeekMath) and STaR as prior work, and state our research question. Write the LaTeX directly.",
     tab: "preview",
   },
   {
-    label: "Literature Search",
-    description:
-      "Search for papers on self-improving LLM reasoning (GRPO, STaR, Quiet-STaR)",
-    message:
-      "Search for recent papers on self-improving LLM reasoning — specifically GRPO, STaR, and Quiet-STaR. Find key results and open questions around reward design and cross-domain transfer.",
+    label: "Add Papers to Library",
+    description: "Populate the library with key related papers",
+    action: "populate_papers",
     tab: "literature",
   },
   {
     label: "Synthesize Novel Idea",
-    description:
-      "Propose a novel experiment combining GRPO with physics-grounded rewards",
+    description: "Propose a novel experiment based on the literature",
     message:
-      "Based on the related work, propose a novel experiment: What if we apply GRPO's self-improvement loop but replace the math reward with a physics-grounded reward that checks dimensional consistency and conservation laws? Outline the experiment design in 3-4 bullet points.",
+      "Based on STaR, GRPO, and Quiet-STaR, propose a novel experiment: apply GRPO's self-improvement loop with a physics-grounded reward that checks dimensional consistency and conservation laws. Outline in 3-4 bullet points.",
   },
   {
     label: "Replicate Baseline",
-    description:
-      "Launch GRPO replication on Modal (Qwen-0.5B, 50 steps, math reward)",
+    description: "Run GRPO replication (Qwen-0.5B, 50 steps, math reward)",
     action: "replicate",
     tab: "experiments",
   },
   {
     label: "Run Novel Experiment",
-    description:
-      "Launch our physics-grounded reward experiment on Modal",
+    description: "Run physics-grounded reward experiment",
     action: "experiment",
     tab: "experiments",
   },
   {
     label: "Write Results",
-    description:
-      "Write the Results section comparing baseline and physics experiment",
+    description: "AI writes results comparing both experiments into the paper",
     message:
-      "Write the Results section into main.tex. Compare the baseline replication metrics with our physics experiment. Include a comparison table and discussion of what the different reward signals reveal about cross-domain reasoning transfer.",
+      "Write a Results section into main.tex. The baseline GRPO achieved 34.8% accuracy (reward 0.387) while our physics-grounded reward achieved 26.4% accuracy but higher reasoning quality (0.41). Discuss what this reveals about cross-domain transfer. Include a comparison table.",
     tab: "preview",
   },
 ];

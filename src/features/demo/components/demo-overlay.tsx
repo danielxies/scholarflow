@@ -43,24 +43,33 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
       setActiveView(step.tab);
     }
 
-    // Handle action steps (Modal experiments)
+    // Handle action steps
     if (step.action && projectId) {
       setSending(true);
       try {
-        const variant = step.action === "replicate" ? "baseline" : "physics";
-        const res = await fetch("/api/experiments/demo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId, variant }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: "Unknown error" }));
-          throw new Error(err.error);
+        if (step.action === "populate_papers") {
+          const res = await fetch("/api/papers/demo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          if (!res.ok) throw new Error("Failed to add papers");
+          toast.success("3 papers added to library");
+        } else {
+          const variant = step.action === "replicate" ? "baseline" : "physics";
+          const res = await fetch("/api/experiments/demo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId, variant }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: "Unknown error" }));
+            throw new Error(err.error);
+          }
+          toast.success(variant === "baseline" ? "Baseline experiment running..." : "Physics experiment running...");
         }
-        const data = await res.json();
-        toast.success(`Experiment submitted: ${data.runnerJobId?.slice(0, 8)}...`);
       } catch (err) {
-        toast.error(`Experiment failed: ${err instanceof Error ? err.message : "Unknown"}`);
+        toast.error(`${err instanceof Error ? err.message : "Unknown error"}`);
       } finally {
         setSending(false);
       }
