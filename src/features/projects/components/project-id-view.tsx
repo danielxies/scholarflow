@@ -8,8 +8,6 @@ import { EditorView } from "@/features/editor/components/editor-view";
 import { LaTeXPreview } from "@/features/preview/components/latex-preview";
 import { LiteratureView } from "@/features/literature/components/literature-view";
 import { ExperimentsView } from "@/features/experiments/components/experiments-view";
-import { SkillsView } from "@/features/skills/components/skills-view";
-
 import { FileExplorer } from "./file-explorer";
 import { Id } from "@/lib/local-db/types";
 
@@ -18,7 +16,7 @@ const MAX_SIDEBAR_WIDTH = 800;
 const DEFAULT_SIDEBAR_WIDTH = 350;
 const DEFAULT_MAIN_SIZE = 1000;
 
-type ProjectView = "editor" | "literature" | "experiments" | "skills" | "preview";
+type ProjectView = "editor" | "literature" | "experiments" | "preview";
 
 const Tab = ({
   label,
@@ -68,11 +66,6 @@ export const ProjectIdView = ({
           onClick={() => setActiveView("experiments")}
         />
         <Tab
-          label="Skills"
-          isActive={activeView === "skills"}
-          onClick={() => setActiveView("skills")}
-        />
-        <Tab
           label="PDF Preview"
           isActive={activeView === "preview"}
           onClick={() => setActiveView("preview")}
@@ -108,12 +101,6 @@ export const ProjectIdView = ({
           activeView === "experiments" ? "visible" : "invisible"
         )}>
           <ExperimentsView projectId={projectId} isActive={activeView === "experiments"} />
-        </div>
-        <div className={cn(
-          "absolute inset-0",
-          activeView === "skills" ? "visible" : "invisible"
-        )}>
-          <SkillsView projectId={projectId} isActive={activeView === "skills"} />
         </div>
         <div className={cn(
           "absolute inset-0",

@@ -2,7 +2,7 @@
 
 import ky from "ky";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   CopyIcon,
   HistoryIcon,
@@ -10,7 +10,9 @@ import {
   PlusIcon,
   SendIcon,
   PaperclipIcon,
+  XIcon,
 } from "lucide-react";
+import { Streamdown } from "streamdown";
 
 import {
   Conversation,
@@ -30,6 +32,19 @@ import { useConversationStore } from "../store/use-conversation-store";
 import { Id } from "@/lib/local-db/types";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
 import { PastConversationsDialog } from "./past-conversations-dialog";
+
+const MarkdownResponse = memo(
+  ({ children }: { children: string }) => (
+    <Streamdown
+      shikiTheme={["one-dark-pro", "one-light"]}
+      className="scholarflow-prose size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>div]:bg-accent [&>div]:rounded-md"
+    >
+      {children}
+    </Streamdown>
+  ),
+  (prev, next) => prev.children === next.children
+);
+MarkdownResponse.displayName = "MarkdownResponse";
 
 interface ConversationSidebarProps {
   projectId: Id<"projects">;
@@ -174,6 +189,13 @@ export const ConversationSidebar = ({
                       <div className="flex items-center gap-2 text-muted-foreground py-2">
                         <LoaderIcon className="size-3.5 animate-spin" />
                         <span className="text-xs font-mono">Processing...</span>
+                        <button
+                          onClick={handleCancel}
+                          className="ml-auto p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                          title="Cancel request"
+                        >
+                          <XIcon className="size-3.5" />
+                        </button>
                       </div>
                     ) : message.status === "cancelled" ? (
                       <span className="text-xs text-muted-foreground italic">
@@ -186,8 +208,8 @@ export const ConversationSidebar = ({
                           Response
                         </span>
                         {/* Response body */}
-                        <div className="rounded-md border border-border/50 bg-card p-3.5 text-[13px] leading-relaxed font-mono text-foreground whitespace-pre-wrap break-words">
-                          {message.content}
+                        <div className="rounded-md border border-border/50 bg-card p-3.5 text-[13px] leading-relaxed text-foreground break-words">
+                          <MarkdownResponse>{message.content}</MarkdownResponse>
                         </div>
                         {/* Actions */}
                         {messageIndex === (conversationMessages?.length ?? 0) - 1 && (

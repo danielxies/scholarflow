@@ -380,7 +380,7 @@ function initSchema(db: Database.Database): void {
       resultSummary   TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_execution_jobs_experiment
-      ON execution_jobs (experimentId, rowid DESC);
+      ON execution_jobs (experimentId);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_execution_jobs_runner
       ON execution_jobs (runnerBackend, runnerJobId);
 
