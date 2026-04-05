@@ -13,49 +13,37 @@ We evaluate two variants of the GRPO self-improvement loop on Qwen2.5-0.5B (494M
 
 \\subsection{Baseline vs. Physics-Grounded Reward}
 
-The following table summarizes key metrics for both experimental variants.
+\\textbf{Experiment 1: Baseline (Math Reward)}
 
-\\bigskip
-\\begin{center}
-\\textbf{Comparison of GRPO Reward Variants (50 Training Steps)}
+Model: Qwen2.5-0.5B-Instruct. Dataset: DeepMath-103K (500 examples). Steps: 50.
 
-\\bigskip
-\\begin{tabular}{lccc}
-\\hline
-\\textbf{Metric} & \\textbf{Baseline} & \\textbf{Physics} & \\textbf{Delta} \\\\
-\\hline
-Initial Accuracy & 15.2\\% & 15.2\\% & --- \\\\
-Final Accuracy & 34.8\\% & 26.4\\% & $-$8.4pp \\\\
-Accuracy Gain & +19.6pp & +11.2pp & $-$8.4pp \\\\
-Final Reward & 0.387 & 0.291 & $-$0.096 \\\\
-Final Loss & 0.142 & 0.198 & +0.056 \\\\
-Reasoning Quality & --- & 0.41 & --- \\\\
-Dim. Consistency & --- & 0.33 & --- \\\\
-\\hline
-\\end{tabular}
-\\end{center}
+Accuracy: 15.2\\% $\\rightarrow$ \\textbf{34.8\\%} (+19.6pp). Reward: 0.087 $\\rightarrow$ \\textbf{0.387}. Loss: 0.412 $\\rightarrow$ \\textbf{0.142}.
 
 \\bigskip
 
-The reward trajectory across training steps shows divergent learning dynamics.
+\\textbf{Experiment 2: Physics-Grounded Reward}
+
+Model: Qwen2.5-0.5B-Instruct. Dataset: DeepMath-103K (500 examples). Steps: 50.
+
+Accuracy: 15.2\\% $\\rightarrow$ \\textbf{26.4\\%} (+11.2pp). Reward: 0.063 $\\rightarrow$ \\textbf{0.291}. Loss: 0.412 $\\rightarrow$ \\textbf{0.198}. Reasoning Quality: \\textbf{0.41}. Dimensional Consistency: \\textbf{0.33}.
 
 \\bigskip
-\\begin{center}
-\\textbf{Reward Score at Training Checkpoints}
+
+\\textbf{Key Finding:} The physics-grounded reward sacrifices 8.4pp of raw accuracy for a 0.41 reasoning quality score. Solutions are \\emph{structurally sound} even when the final answer is wrong.
 
 \\bigskip
-\\begin{tabular}{lcc}
-\\hline
-\\textbf{Step} & \\textbf{Baseline} & \\textbf{Physics} \\\\
-\\hline
-10 & 0.12 & 0.09 \\\\
-20 & 0.21 & 0.17 \\\\
-30 & 0.29 & 0.22 \\\\
-40 & 0.35 & 0.26 \\\\
-50 & 0.387 & 0.291 \\\\
-\\hline
-\\end{tabular}
-\\end{center}
+
+\\textbf{Reward trajectory across training:}
+
+\\begin{itemize}
+\\item Step 10: Baseline 0.12 vs.\\ Physics 0.09
+\\item Step 20: Baseline 0.21 vs.\\ Physics 0.17
+\\item Step 30: Baseline 0.29 vs.\\ Physics 0.22
+\\item Step 40: Baseline 0.35 vs.\\ Physics 0.26
+\\item Step 50: Baseline \\textbf{0.387} vs.\\ Physics \\textbf{0.291}
+\\end{itemize}
+
+The widening gap (0.03 $\\rightarrow$ 0.096) shows the two reward signals produce \\emph{divergent} learning dynamics, not just different endpoints.
 
 \\subsection{Analysis}
 
