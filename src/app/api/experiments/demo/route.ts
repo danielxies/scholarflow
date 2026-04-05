@@ -29,7 +29,7 @@ import json, time, os
 os.makedirs("outputs", exist_ok=True)
 
 print("Installing dependencies...")
-os.system("pip install -q trl datasets accelerate torch transformers")
+os.system("pip install -q trl datasets accelerate torch transformers math_verify")
 
 from datasets import load_dataset
 from trl import GRPOTrainer, GRPOConfig
@@ -102,7 +102,7 @@ import json, time, os, re
 os.makedirs("outputs", exist_ok=True)
 
 print("Installing dependencies...")
-os.system("pip install -q trl datasets accelerate torch transformers")
+os.system("pip install -q trl datasets accelerate torch transformers math_verify")
 
 from datasets import load_dataset
 from trl import GRPOTrainer, GRPOConfig
