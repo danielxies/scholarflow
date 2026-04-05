@@ -396,6 +396,14 @@ export async function POST(request: Request) {
       runnerJobId: result.runnerJobId,
       status: "queued",
       computeTier: "standard",
+      repoUrl: null,
+      repoRef: null,
+      currentCommand: null,
+      lastHeartbeatAt: null,
+      startedAt: null,
+      completedAt: null,
+      error: null,
+      resultSummary: null,
     });
 
     // Update experiment status
