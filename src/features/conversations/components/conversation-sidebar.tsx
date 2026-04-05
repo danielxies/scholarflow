@@ -274,9 +274,13 @@ export const ConversationSidebar = ({
                       {streamingText ? (
                         <MarkdownResponse>{streamingText}</MarkdownResponse>
                       ) : (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <LoaderIcon className="size-3.5 animate-spin" />
-                          <span className="text-xs font-mono">Thinking...</span>
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                          <div className="flex gap-1">
+                            <div className="size-1.5 rounded-full bg-secondary animate-pulse" />
+                            <div className="size-1.5 rounded-full bg-secondary animate-pulse [animation-delay:150ms]" />
+                            <div className="size-1.5 rounded-full bg-secondary animate-pulse [animation-delay:300ms]" />
+                          </div>
+                          <span className="text-xs font-mono">Analyzing research context...</span>
                         </div>
                       )}
                     </div>
