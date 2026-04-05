@@ -43,6 +43,29 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
       setActiveView(step.tab);
     }
 
+    // Handle action steps (Modal experiments)
+    if (step.action && projectId) {
+      setSending(true);
+      try {
+        const variant = step.action === "replicate" ? "baseline" : "physics";
+        const res = await fetch("/api/experiments/demo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, variant }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(err.error);
+        }
+        const data = await res.json();
+        toast.success(`Experiment submitted: ${data.runnerJobId?.slice(0, 8)}...`);
+      } catch (err) {
+        toast.error(`Experiment failed: ${err instanceof Error ? err.message : "Unknown"}`);
+      } finally {
+        setSending(false);
+      }
+    }
+
     // Send message if needed
     if (step.message && conversationId) {
       setSending(true);
@@ -53,7 +76,6 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
           body: JSON.stringify({ conversationId, message: step.message }),
         });
         if (!res.ok) throw new Error("Failed");
-        // Consume the stream (chat sidebar will display it via polling)
         const reader = res.body?.getReader();
         if (reader) {
           while (true) {
