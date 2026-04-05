@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     } catch {
       // ignore if DB is gone
     }
-  }, 8000);
+  }, 30000);
 
   return NextResponse.json({
     success: true,

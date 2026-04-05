@@ -69,9 +69,12 @@ export async function POST(request: Request) {
   }
 
   const addedIds: string[] = [];
-  for (const paper of DEMO_PAPERS) {
+
+  // Add papers with staggered delays to feel like a real search
+  for (let i = 0; i < DEMO_PAPERS.length; i++) {
+    await new Promise((r) => setTimeout(r, i === 0 ? 3000 : 3500));
     try {
-      const id = dbOps.addPaper(projectId, paper);
+      const id = dbOps.addPaper(projectId, DEMO_PAPERS[i]);
       addedIds.push(id);
     } catch {
       // skip if already exists
