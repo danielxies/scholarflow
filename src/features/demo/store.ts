@@ -56,6 +56,7 @@ interface DemoState {
   completedSteps: number[];
   setActiveView: ((view: ProjectView) => void) | null;
   start: () => void;
+  resume: () => void;
   stop: () => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -69,6 +70,7 @@ export const useDemoStore = create<DemoState>((set) => ({
   completedSteps: [],
   setActiveView: null,
   start: () => set({ active: true, currentStep: 0, completedSteps: [] }),
+  resume: () => set({ active: true }),
   stop: () => set({ active: false }),
   nextStep: () =>
     set((s) => ({

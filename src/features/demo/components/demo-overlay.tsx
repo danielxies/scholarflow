@@ -24,7 +24,7 @@ interface DemoOverlayProps {
 }
 
 export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
-  const { active, currentStep, completedSteps, start, stop, nextStep, prevStep, setActiveView, markCompleted } =
+  const { active, currentStep, completedSteps, resume, stop, nextStep, prevStep, setActiveView, markCompleted } =
     useDemoStore();
   const [sending, setSending] = useState(false);
   const [statusText, setStatusText] = useState("Sending...");
@@ -136,7 +136,7 @@ export const DemoOverlay = ({ projectId }: DemoOverlayProps) => {
   if (!active) {
     return (
       <button
-        onClick={start}
+        onClick={resume}
         className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground shadow-lg hover:opacity-90 transition-opacity"
       >
         <MonitorPlayIcon className="size-4" />
